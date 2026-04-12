@@ -3,16 +3,66 @@ name = "backend"
 version = "0.1.0"
 requires-python = ">=3.10,<3.11"
 dependencies = [
-    "ctranslate2[cuda11]>=4.7.1",
     "gradio>=6.11.0",
-    "onnx>=1.21.0",
-    "onnxruntime>=1.23.2",
     "opencv-python",
-    "paddleocr>=3.4.0",
+    "setuptools>=70",
+    # =========================
+    # YOLO / CV
+    # =========================
+    "ultralytics>=8.3.70",          # >= 8.3.70 để hỗ trợ tốt Torch 2.6
+    # =========================
+    # PYTORCH (CUDA 12.6)
+    # =========================
+    "torch==2.6.0",
+    "torchvision==0.21.0",
+    "torchaudio==2.6.0",
+    # =========================
+    # NLP / OCR
+    # =========================
+    "ctranslate2>=4.7.1",
     "sentencepiece>=0.2.1",
-    "setuptools>=82.0.1",
-    "simple-lama-inpainting>=0.1.0",
-    "tensorrt>=10.16.0.72",
     "transformers>=5.5.0",
-    "ultralytics>=8.4.34",
+    "paddleocr>=3.4.0",
+    # =========================
+    # ONNX
+    # =========================
+    "onnx>=1.21.0",
+    "onnxruntime-gpu==1.20.1",      # Phiên bản mới nhất hỗ trợ CUDA 12.x tốt
+    # =========================
+    # IMAGE
+    # =========================
+    "simple-lama-inpainting>=0.1.0",
+    # =========================
+    # PADDLE GPU (cu126)
+    # =========================
+    "paddlepaddle-gpu==3.3.1",       # Hoặc 3.2.1 nếu 3.3.1 chưa ổn định
+    # =========================
+    # NUMPY
+    # =========================
+    "numpy<2",
+    "tensorrt-cu12>=10.16.1.11",
+    "tensorrt-cu12-bindings>=10.16.1.11",
+    "tensorrt-cu12-libs>=10.16.1.11",
 ]
+
+# =========================
+# CUDA 12.6 INDEX
+# =========================
+[[tool.uv.index]]
+name = "torch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "paddle-cu126"
+url = "https://www.paddlepaddle.org.cn/packages/stable/cu126/"
+explicit = true
+
+# =========================
+# PACKAGE BINDING (Sources)
+# =========================
+[tool.uv.sources]
+torch = { index = "torch-cu126" }
+torchvision = { index = "torch-cu126" }
+torchaudio = { index = "torch-cu126" }
+paddlepaddle-gpu = { index = "paddle-cu126" }

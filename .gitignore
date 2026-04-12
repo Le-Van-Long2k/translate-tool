@@ -39,8 +39,6 @@ backend/**/*.pth
 backend/**/*.onnx
 backend/**/*.engine
 
-backend/install/TensorRT-*.tar.gz
-backend/install/TensorRT-8.6.1.6/
 backend/bubble_detector/comic.engine
 backend/translator/nllb-600M-ct2-float16/
 

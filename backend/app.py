@@ -1,14 +1,4 @@
 import os
-
-from bubble_detector.bubble_detector import BubbleDetector
-
-
-# Set TensorRT library path for PaddleOCR before any imports
-tensorrt_lib_path = "/usr/local/TensorRT/lib"
-current_ld_path = os.environ.get("LD_LIBRARY_PATH", "")
-if tensorrt_lib_path not in current_ld_path:
-    os.environ["LD_LIBRARY_PATH"] = f"{tensorrt_lib_path}:{current_ld_path}"
-
 import numpy as np
 import cv2
 import glob
@@ -26,6 +16,11 @@ except:
     TK_AVAILABLE = False
 
 
+from ocr_engine.ocr_engine import OCREngine
+from text_renderer.text_renderer import TextRenderer
+from translator.translator import ITranslator
+from bubble_detector.bubble_detector import BubbleDetector
+
 # from bubble_detector.yolo_v8_bubble_detector import YOLOv8BubbleDetector
 from bubble_detector.yolo_v8_bubble_detector_tensorRT import YOLOv8TensorRT
 from ocr_engine.paddle_ocr_engine import PaddleOCREngine
@@ -34,16 +29,19 @@ from text_renderer.pil_centered_text import PILCenteredTextRenderer
 # from translator.google_translator import GoogleTranslatorEngine
 # from translator.tencent_translator import TencentTranslatorEngine
 # from translator.NLLBTranslator import NLLBTranslator
-from translator.gemma_4_e2b_translator import Gemma4E2BLlamaCppPythonTranslator
+from translator.gemma_4_e2b_translator import (
+    Gemma4E2BLlamaCppPythonTranslator,
+    Gemma4E2BClientTranslator,
+)
 
 from inpainting.lama_inpainting import LamaInpainting
 
 # ── INIT ENGINE ─────────────────────────────────────────────
 detector: BubbleDetector = YOLOv8TensorRT()
-ocr_engine = PaddleOCREngine()
-translator = Gemma4E2BLlamaCppPythonTranslator()
+ocr_engine: OCREngine = PaddleOCREngine()
+translator: ITranslator = Gemma4E2BClientTranslator()
 inpainter = LamaInpainting()
-renderer = PILCenteredTextRenderer()
+renderer: TextRenderer = PILCenteredTextRenderer()
 
 
 # ── UTILS ──────────────────────────────────────────────────

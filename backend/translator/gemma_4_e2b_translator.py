@@ -3,6 +3,7 @@ from typing import List
 import json
 import requests
 from translator.translator import ITranslator
+from llama_cpp import Llama
 
 
 class Gemma4E2BClientTranslator(ITranslator):
@@ -98,16 +99,68 @@ class Gemma4E2BClientTranslator(ITranslator):
 
 
 class Gemma4E2BLlamaCppPythonTranslator(ITranslator):
-    def __init__(self, model_path="/home/test/llama.cpp/custom-models/gemma-4-e2b-it-Q8_0.gguf"):
-        from llama_cpp import Llama
+    def __init__(
+        self, model_path="/home/test/llama.cpp/custom-models/gemma-4-e2b-it-Q8_0.gguf"
+    ):
 
         self.llm = Llama(
             model_path=model_path,
-            n_gpu_layers=-1,
+            n_gpu_layers=30,
             n_batch=512,
+            n_ubatch=512,
             n_ctx=2048,
             verbose=False,
+            flash_attn=True,
+            logits_all=False,
+            embedding=False,
         )
+
+    def _build_prompt(self, texts: List[str]) -> str:
+
+        texts = [self.clean_ocr_text(text) for text in texts]
+
+        return f"""
+        Bạn là hệ thống dịch tiếng Việt.
+
+        QUY TẮC TUYỆT ĐỐI:
+        - Output phải có đúng {len(texts)} phần tử, tương ứng với số lượng input
+        - Mỗi phần tử tương ứng 1 input theo đúng thứ tự
+        - KHÔNG được bỏ bất kỳ dòng nào
+        - KHÔNG được gộp dòng
+        - KHÔNG được thiếu phần tử
+        - KHÔNG được coi dòng nào là rác hay bỏ qua
+        - Dù là watermark / noise / ký tự lạ cũng phải giữ nguyên và chỉ dịch nếu có nghĩa
+        - Neu trong cau da dich co ki tu khong phu hop voi tieng viet thi xoa no di
+        - Chỉ trả về JSON array hợp lệ
+        - Không chữ, không tiêu đề, không giải thích
+        - Không được thêm "DỮ LIỆU", "INPUT", "OUTPUT"
+        - Không markdown
+
+        INPUT:
+        {json.dumps(texts, ensure_ascii=False, indent=2)}
+
+        OUTPUT:
+        """
+
+    def clean_ocr_text(self, text: str) -> str:
+        pattern = r"[^\w\s\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af\.\,\!\?\:\;\-\(\)\[\]\"\'\/\@\•\…❤]"
+
+        text = re.sub(pattern, "", text)
+        text = re.sub(r"\s+", " ", text).strip()
+
+        return text
+
+    def parse_llm_json(self, output: str):
+        try:
+            start = output.rfind("[")
+            end = output.rfind("]")
+            if start == -1 or end == -1:
+                return None
+
+            data = output[start : end + 1]
+            return json.loads(data)
+        except (json.JSONDecodeError, ValueError):
+            return None
 
     def translate_batch(
         self, texts: List[str], from_lang: str, to_lang: str

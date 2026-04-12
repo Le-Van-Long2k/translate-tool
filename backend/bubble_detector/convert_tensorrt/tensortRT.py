@@ -3,6 +3,7 @@ import os
 import tensorrt as trt
 from ultralytics import YOLO
 from huggingface_hub import hf_hub_download
+from pathlib import Path
 
 # tải model
 model_path = hf_hub_download(
@@ -35,7 +36,7 @@ print(f"✅ Export ONNX done! File saved to: {onnx_path}")
 
 # Set environment variable to match runtime execution environment
 # This prevents TF32 override mismatch errors when loading the engine
-os.environ["NVIDIA_TF32_OVERRIDE"] = "0"
+# os.environ["NVIDIA_TF32_OVERRIDE"] = "0"
 
 # Build TensorRT engine from ONNX using Python TensorRT runtime
 TRT_LOGGER = trt.Logger(trt.Logger.INFO)
@@ -66,7 +67,10 @@ serialized_engine = builder.build_serialized_network(network, config)
 if serialized_engine is None:
     raise RuntimeError("Failed to build TensorRT engine")
 
-engine_path = os.path.join("bubble_detector", "comic.engine")
+
+base_dir = Path(__file__).resolve().parent
+parent_dir = base_dir.parent
+engine_path = parent_dir / "comic.engine"
 with open(engine_path, "wb") as f:
     f.write(bytes(serialized_engine))
 

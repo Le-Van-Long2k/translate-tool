@@ -36,7 +36,7 @@ sudo apt install python3-tk -y
 
 
 sudo apt install libcublas-12-0
-pip install ctranslate2[cuda11] transformers sentencepiece
+pip install ctranslate2[cuda12] transformers sentencepiece
 ct2-transformers-converter --model facebook/nllb-200-distilled-600M \
     --output_dir nllb-200-distilled-600M-ct2 \
     --quantization int8 \
@@ -47,3 +47,13 @@ ct2-transformers-converter \
     --output_dir nllb-600M-ct2-float16 \
     --quantization float16 \
     --force
+
+
+
+# 2026-04-12
+cd backend
+uv sync
+uv run bubble_detector/convert_tensorrt/tensortRT.py
+
+bash translator/llama_server/run_server.sh
+uv run app.py
