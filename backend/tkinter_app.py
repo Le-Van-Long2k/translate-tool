@@ -9,7 +9,7 @@ import numpy as np
 from ocr_engine.paddle_ocr_engine import PaddleOCREngine
 from text_renderer.pil_centered_text import PILCenteredTextRenderer
 from translator.gemma_4_e2b_translator import Gemma4E2BClientTranslator
-from bubble_detector.yolo_v8_bubble_detector_tensorRT import YOLOv8TensorRT
+from bubble_detector.yolo_v8_bubble_detector import YOLOv8TensorRT
 from inpainting.lama_inpainting import LamaInpainting
 
 detector = YOLOv8TensorRT()

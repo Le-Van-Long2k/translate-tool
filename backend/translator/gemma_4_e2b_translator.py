@@ -4,11 +4,16 @@ import json
 import requests
 from translator.translator import ITranslator
 from llama_cpp import Llama
+import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Gemma4E2BClientTranslator(ITranslator):
     def __init__(self, url="http://localhost:8121/completion"):
         self.url = url
+        logger.info(f"Gemma4E2B Client Translator initialized with URL: {self.url}")
 
     def _call(self, prompt: str) -> str:
         res = requests.post(
@@ -74,26 +79,32 @@ class Gemma4E2BClientTranslator(ITranslator):
             return None
 
     def translate_batch(
-        self, texts: List[str], from_lang: str, to_lang: str
+        self, texts: List[str], from_lang: str, to_lang: str, context: str = ""
     ) -> List[str]:
         if not texts:
             return []
-
+        start_time = time.time()
         prompt = self._build_prompt(texts)
         output = self._call(prompt)
 
         parsed_output = self.parse_llm_json(output)
         if parsed_output is None:
-            print(
+            logger.warning(
                 "⚠️ Cảnh báo: Không tìm thấy JSON hợp lệ trong output. Trả về input gốc."
             )
-            print("Output nhận được:", output)
+            logger.info("Input nhận được: %s", texts)
+            logger.info("Output nhận được: %s", output)
             return texts
         if len(parsed_output) != len(texts):
-            print("⚠️ Cảnh báo: Số lượng output không khớp với input. Trả về input gốc.")
-            print("Input nhận được:", texts)
-            print("Output nhận được:", output)
+            logger.warning(
+                "⚠️ Cảnh báo: Số lượng output không khớp với input. Trả về input gốc."
+            )
+            logger.info("Input nhận được: %s", texts)
+            logger.info("Output nhận được: %s", output)
             return texts
+
+        end_time = time.time()
+        logger.info(f"Translation time: {end_time - start_time:.3f} seconds")
 
         return parsed_output
 
@@ -113,6 +124,9 @@ class Gemma4E2BLlamaCppPythonTranslator(ITranslator):
             flash_attn=True,
             logits_all=False,
             embedding=False,
+        )
+        logger.info(
+            f"Gemma4E2B Llama.cpp Translator initialized with model: {model_path}"
         )
 
     def _build_prompt(self, texts: List[str]) -> str:
@@ -163,11 +177,11 @@ class Gemma4E2BLlamaCppPythonTranslator(ITranslator):
             return None
 
     def translate_batch(
-        self, texts: List[str], from_lang: str, to_lang: str
+        self, texts: List[str], from_lang: str, to_lang: str, context: str = ""
     ) -> List[str]:
         if not texts:
             return []
-
+        start_time = time.time()
         prompt = self._build_prompt(texts)
 
         res = self.llm.create_chat_completion(
@@ -187,15 +201,19 @@ class Gemma4E2BLlamaCppPythonTranslator(ITranslator):
         output_text = res["choices"][0]["message"]["content"]
         parsed_output = self.parse_llm_json(output_text)
         if parsed_output is None:
-            print(
+            logger.warning(
                 "⚠️ Cảnh báo: Không tìm thấy JSON hợp lệ trong output. Trả về input gốc."
             )
-            print("Output nhận được:", output_text)
+            logger.info("Input nhận được: %s", texts)
+            logger.info("Output nhận được: %s", output_text)
             return texts
         if len(parsed_output) != len(texts):
-            print("⚠️ Cảnh báo: Số lượng output không khớp với input. Trả về input gốc.")
-            print("Input nhận được:", texts)
-            print("Output nhận được:", output_text)
+            logger.warning(
+                "⚠️ Cảnh báo: Số lượng output không khớp với input. Trả về input gốc."
+            )
+            logger.info("Input nhận được: %s", texts)
+            logger.info("Output nhận được: %s", output_text)
             return texts
-
+        end_time = time.time()
+        logger.info(f"Translation time: {end_time - start_time:.3f} seconds")
         return parsed_output

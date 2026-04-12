@@ -1,9 +1,16 @@
+import logging
 import os
 import numpy as np
 import cv2
 import glob
 import gradio as gr
 import time
+
+from utils.logger import setup_logger
+
+setup_logger()
+logger = logging.getLogger(__name__)
+logger.info("App started")
 
 
 # Optional: chọn folder bằng GUI Windows
@@ -16,13 +23,22 @@ except:
     TK_AVAILABLE = False
 
 
-from ocr_engine.ocr_engine import OCREngine
-from text_renderer.text_renderer import TextRenderer
-from translator.translator import ITranslator
 from bubble_detector.bubble_detector import BubbleDetector
+from bubble_detector.bubble_detector_factory import (
+    BubbleDetectorType,
+    BubbleDetectorFactory,
+)
+
+from ocr_engine.ocr_engine import OCREngine
+from ocr_engine.ocr_factory import OCREngineFactory, OCREngineType
+
+from translator.translator import ITranslator
+from translator.translator_factory import TranslatorFactory, TranslatorType
+
+from text_renderer.text_renderer import TextRenderer
 
 # from bubble_detector.yolo_v8_bubble_detector import YOLOv8BubbleDetector
-from bubble_detector.yolo_v8_bubble_detector_tensorRT import YOLOv8TensorRT
+from bubble_detector.yolo_v8_bubble_detector import YOLOv8TensorRT
 from ocr_engine.paddle_ocr_engine import PaddleOCREngine
 from text_renderer.pil_centered_text import PILCenteredTextRenderer
 
@@ -37,9 +53,13 @@ from translator.gemma_4_e2b_translator import (
 from inpainting.lama_inpainting import LamaInpainting
 
 # ── INIT ENGINE ─────────────────────────────────────────────
-detector: BubbleDetector = YOLOv8TensorRT()
-ocr_engine: OCREngine = PaddleOCREngine()
-translator: ITranslator = Gemma4E2BClientTranslator()
+detector: BubbleDetector = BubbleDetectorFactory.create(
+    BubbleDetectorType.YOLOV8_TENSORRT
+)
+ocr_engine: OCREngine = OCREngineFactory.create(OCREngineType.PADDLE_OCR)
+translator: ITranslator = TranslatorFactory.create(
+    TranslatorType.GEMMA_4_E2B_LLAMACPP_PYTHON
+)
 inpainter = LamaInpainting()
 renderer: TextRenderer = PILCenteredTextRenderer()
 
@@ -147,7 +167,7 @@ def process_comic_folder(
                 if crop.size == 0:
                     continue
 
-            ocr_results = ocr_engine.recognize(bubbles)
+            ocr_results = ocr_engine.ocr(bubbles)
 
             for i, item in enumerate(ocr_results):
                 text = item.get("text", "").strip()

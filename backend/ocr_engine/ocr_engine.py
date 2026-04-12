@@ -5,5 +5,5 @@ import numpy as np
 
 class OCREngine(ABC):
     @abstractmethod
-    def recognize(self, images: Union[np.ndarray, List[np.ndarray]]):
+    def ocr(self, images: Union[np.ndarray, List[np.ndarray]]):
         pass
