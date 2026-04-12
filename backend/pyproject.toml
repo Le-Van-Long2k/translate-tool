@@ -1,0 +1,18 @@
+[project]
+name = "backend"
+version = "0.1.0"
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    "ctranslate2[cuda11]>=4.7.1",
+    "gradio>=6.11.0",
+    "onnx>=1.21.0",
+    "onnxruntime>=1.23.2",
+    "opencv-python",
+    "paddleocr>=3.4.0",
+    "sentencepiece>=0.2.1",
+    "setuptools>=82.0.1",
+    "simple-lama-inpainting>=0.1.0",
+    "tensorrt>=10.16.0.72",
+    "transformers>=5.5.0",
+    "ultralytics>=8.4.34",
+]
