@@ -66,3 +66,6 @@ torch = { index = "torch-cu126" }
 torchvision = { index = "torch-cu126" }
 torchaudio = { index = "torch-cu126" }
 paddlepaddle-gpu = { index = "paddle-cu126" }
+
+[tool.ruff]
+format.preview = true

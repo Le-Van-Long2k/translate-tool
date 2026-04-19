@@ -1,7 +1,6 @@
-sudo apt install gcc-10 g++-10
-
-export CC=gcc-10
-export CXX=g++-10
-export CUDAHOSTCXX=g++-10
+#!/bin/bash
+export CC=gcc
+export CXX=g++
+export CUDAHOSTCXX=g++
 
 CMAKE_ARGS="-DGGML_CUDA=on" uv pip install llama-cpp-python --force-reinstall --no-cache-dir

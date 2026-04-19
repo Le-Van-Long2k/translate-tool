@@ -1,1 +1,27 @@
-
+services:
+  translator_backend:
+    build: .
+    container_name: gradio_backend_dev
+    # Mount thư mục hiện tại ở máy host vào /app trong container
+    volumes:
+      - .:/app
+      - /app/.venv
+    ports:
+      - "7860:7860"
+    # Cấu hình để container sử dụng được GPU NVIDIA
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+    # Biến môi trường quan trọng
+    environment:
+      - PYTHONUNBUFFERED=1
+      - GRADIO_SERVER_NAME=0.0.0.0
+      - GRADIO_SERVER_PORT=7860
+      - UV_LINK_MODE=copy
+    shm_size: '2gb'
+    stdin_open: true
+    tty: true

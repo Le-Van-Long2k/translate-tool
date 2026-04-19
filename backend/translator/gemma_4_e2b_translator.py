@@ -6,6 +6,7 @@ from translator.translator import ITranslator
 from llama_cpp import Llama
 import time
 import logging
+from pathlib import Path
 
 logger = logging.getLogger("TRANSLATOR")
 
@@ -109,10 +110,11 @@ class Gemma4E2BClientTranslator(ITranslator):
         return parsed_output
 
 
+current_dir = Path(__file__).parent.absolute()
+
+
 class Gemma4E2BLlamaCppPythonTranslator(ITranslator):
-    def __init__(
-        self, model_path="/home/test/llama.cpp/custom-models/gemma-4-e2b-it-Q8_0.gguf"
-    ):
+    def __init__(self, model_path=str(current_dir / "translate_models/gemma-4-e2b-it-Q8_0.gguf")):
 
         self.llm = Llama(
             model_path=model_path,

@@ -1,3 +1,4 @@
+#!/bin/bash
 tar -xvf TensorRT-8.6.1.6.Linux.x86_64-gnu.cuda-11.8.tar.gz
 cd TensorRT-8.6.1.6
 ls lib | grep nvinfer

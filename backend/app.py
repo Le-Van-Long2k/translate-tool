@@ -256,18 +256,16 @@ def process_comic_folder(
 
             total_page_time = time.perf_counter() - page_start_time
 
-            time_log_table.append(
-                [
-                    filename,
-                    f"{height}x{width}",
-                    f"{t_detect:.3f}s",
-                    f"{t_ocr:.3f}s",
-                    f"{t_translate:.3f}s",
-                    f"{t_inpaint:.3f}s",
-                    f"{t_render:.3f}s",
-                    f"{total_page_time:.3f}s",
-                ]
-            )
+            time_log_table.append([
+                filename,
+                f"{height}x{width}",
+                f"{t_detect:.3f}s",
+                f"{t_ocr:.3f}s",
+                f"{t_translate:.3f}s",
+                f"{t_inpaint:.3f}s",
+                f"{t_render:.3f}s",
+                f"{total_page_time:.3f}s",
+            ])
 
             yield (
                 f"✅ Xong {idx}/{len(image_paths)}",
@@ -326,9 +324,7 @@ def process_comic_folder(
 
 
 # ── UI ─────────────────────────────────────────────────────
-with gr.Blocks(
-    title="Comic Pro Translator", theme=gr.themes.Soft(), fill_width=True
-) as demo:
+with gr.Blocks(title="Comic Pro Translator", fill_width=True) as demo:
     gr.Markdown("# 📚 Comic Translator - Full Pipeline View")
     is_running = gr.State(value=False)
 
@@ -482,4 +478,8 @@ with gr.Blocks(
         )
 
 if __name__ == "__main__":
-    demo.queue().launch(server_name="0.0.0.0", server_port=7860)
+    demo.queue().launch(
+        theme=gr.themes.Soft(),
+        server_name="0.0.0.0",
+        server_port=7860,
+    )
