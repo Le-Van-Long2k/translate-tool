@@ -10,12 +10,12 @@ from ocr_engine.paddle_ocr_engine import PaddleOCREngine
 from text_renderer.pil_centered_text import PILCenteredTextRenderer
 from translator.gemma_4_e2b_translator import Gemma4E2BClientTranslator
 from bubble_detector.yolo_v8_bubble_detector import YOLOv8TensorRT
-from inpainting.lama_inpainting import LamaInpainting
+from inpainting.lama_inpaintor import LamaInpaintor
 
 detector = YOLOv8TensorRT()
 ocr_engine = PaddleOCREngine()
 translator = Gemma4E2BClientTranslator()
-inpainter = LamaInpainting()
+inpainter = LamaInpaintor()
 renderer = PILCenteredTextRenderer()
 
 current_image = None

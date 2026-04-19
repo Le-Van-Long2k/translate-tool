@@ -7,7 +7,7 @@ from llama_cpp import Llama
 import time
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("TRANSLATOR")
 
 
 class Gemma4E2BClientTranslator(ITranslator):

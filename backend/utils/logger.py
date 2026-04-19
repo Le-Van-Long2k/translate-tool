@@ -12,7 +12,7 @@ def setup_logger():
         handler = logging.FileHandler(filename, encoding="utf-8")
 
         formatter = logging.Formatter(
-            "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+            "%(asctime)s | %(levelname)-8s | %(name)-15s | %(message)s"
         )
 
         handler.setFormatter(formatter)
@@ -22,9 +22,12 @@ def setup_logger():
     noisy_loggers = [
         "httpx",
         "urllib3",
+        "httpcore",  # Fix lỗi hiện log connect_tcp/tls
+        "matplotlib",  # Fix lỗi hiện log nạp font và backend
         "gradio",
         "huggingface_hub",
         "asyncio",
+        "PIL",  # Thư viện ảnh đôi khi cũng log DEBUG
     ]
 
     for name in noisy_loggers:

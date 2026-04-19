@@ -9,7 +9,7 @@ from bubble_detector.bubble_detector import BubbleDetector
 import time
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("BUBBLE_DETECTOR")
 
 
 class YOLOv8BubbleDetector(BubbleDetector):

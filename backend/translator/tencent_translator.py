@@ -4,7 +4,7 @@ import time
 import re
 import logging
 
-logger = logging.getLogger(__name__).setLevel(logging.ERROR)
+logger = logging.getLogger("TRANSLATOR")
 
 
 class TencentTranslatorEngine:

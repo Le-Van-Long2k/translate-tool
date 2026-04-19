@@ -9,8 +9,8 @@ from translator.gemma_4_e2b_translator import (
 
 
 class TranslatorType(Enum):
-    GEMMA_4_E2B_CLIENT = "gemma_4_e2b_client"
-    GEMMA_4_E2B_LLAMACPP_PYTHON = "gemma_4_e2b_llamacpp_python"
+    GEMMA_4_E2B_CLIENT = "gemma_4_e2b_v1"
+    GEMMA_4_E2B_LLAMACPP_PYTHON = "gemma_4_e2b_v2"
 
 
 MODEL_REGISTRY = {

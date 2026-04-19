@@ -57,3 +57,10 @@ uv run bubble_detector/convert_tensorrt/tensortRT.py
 
 bash translator/llama_server/run_server.sh
 uv run app.py
+
+
+# 2026-04-19
+export PATH=/usr/local/cuda/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+export CUDA_HOME=/usr/local/cuda
+CMAKE_ARGS="-DGGML_CUDA=ON -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc" uv pip install llama-cpp-python --upgrade --force-reinstall --no-cache-dir

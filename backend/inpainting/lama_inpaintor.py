@@ -1,12 +1,12 @@
 import time
-
 import torch
 import numpy as np
 import cv2
+from inpainting.inpainter import Inpainter
 from simple_lama_inpainting import SimpleLama
 
 
-class LamaInpainting:
+class LamaInpaintor(Inpainter):
     def __init__(self, device=None):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model = SimpleLama(device=self.device)

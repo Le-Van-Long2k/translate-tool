@@ -6,7 +6,7 @@ from huggingface_hub import hf_hub_download
 from pathlib import Path
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("BUBBLE_DETECTOR")
 
 
 def build_tensorrt_comic_engine():

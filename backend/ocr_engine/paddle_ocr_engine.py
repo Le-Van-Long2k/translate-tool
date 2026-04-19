@@ -14,14 +14,14 @@ from paddleocr import PaddleOCR
 from ocr_engine.ocr_engine import OCREngine
 from typing import List, Union
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("OCR_ENGINE")
 
 
 class PaddleOCREngine(OCREngine):
     def __init__(self):
         text_detection_model_name = "PP-OCRv5_server_det"
         text_recognition_model_name = "PP-OCRv5_server_rec"
-        self.ocr = PaddleOCR(
+        self.model = PaddleOCR(
             text_detection_model_name=text_detection_model_name,
             text_recognition_model_name=text_recognition_model_name,
             use_doc_orientation_classify=False,
@@ -42,7 +42,7 @@ class PaddleOCREngine(OCREngine):
 
         start_time = time.perf_counter()
 
-        results = self.ocr.predict(images)
+        results = self.model.predict(images)
 
         outputs = []
 

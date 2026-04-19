@@ -4,7 +4,7 @@ from googletrans import Translator
 import time
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("TRANSLATOR")
 
 
 class GoogleTranslatorEngine(ITranslator):

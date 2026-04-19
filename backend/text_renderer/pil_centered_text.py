@@ -5,7 +5,7 @@ from text_renderer.text_renderer import TextRenderer
 
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("TEXT_RENDERER")
 
 
 class PILCenteredTextRenderer(TextRenderer):
