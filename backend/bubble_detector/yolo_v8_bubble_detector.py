@@ -50,9 +50,15 @@ class YOLOv8BubbleDetector(BubbleDetector):
             )
 
         boxes = []
-        for r in results:
-            for box in r.boxes.xyxy.cpu().numpy():
-                x1, y1, x2, y2 = map(int, box)
+        # for r in results:
+        #     for box in r.boxes.xyxy.cpu().numpy():
+        #         x1, y1, x2, y2 = map(int, box)
+        #         boxes.append((x1, y1, x2, y2))
+        if len(results.boxes) > 0:
+            coords = results.boxes.xyxy.cpu().numpy().astype(int)
+            
+            for coord in coords:
+                x1, y1, x2, y2 = coord
                 boxes.append((x1, y1, x2, y2))
         end_time = time.time()
         logger.debug(
@@ -88,10 +94,12 @@ class YOLOv8TensorRT(BubbleDetector):
         )[0]
 
         boxes = []
-        if results:
-            for box in results[0].boxes or []:
-                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                boxes.append((int(x1), int(y1), int(x2), int(y2)))
+        if len(results.boxes) > 0:
+            coords = results.boxes.xyxy.cpu().numpy().astype(int)
+            
+            for coord in coords:
+                x1, y1, x2, y2 = coord
+                boxes.append((x1, y1, x2, y2))
         end_time = time.perf_counter()
 
         logger.debug(

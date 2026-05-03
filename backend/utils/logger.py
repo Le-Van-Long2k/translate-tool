@@ -22,12 +22,15 @@ def setup_logger():
     noisy_loggers = [
         "httpx",
         "urllib3",
-        "httpcore",  # Fix lỗi hiện log connect_tcp/tls
-        "matplotlib",  # Fix lỗi hiện log nạp font và backend
+        "httpcore",
+        "matplotlib",
         "gradio",
         "huggingface_hub",
         "asyncio",
-        "PIL",  # Thư viện ảnh đôi khi cũng log DEBUG
+        "PIL",
+        "multipart",
+        "python_multipart",
+        "python_multipart.multipart",
     ]
 
     for name in noisy_loggers:

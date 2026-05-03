@@ -22,7 +22,7 @@ setup_logger()
 logger = logging.getLogger("MAIN")
 
 # ── INIT ENGINE ─────────────────────────────────────────────
-detector = BubbleDetectorFactory.create(BubbleDetectorType.YOLOV8)
+detector = BubbleDetectorFactory.create(BubbleDetectorType.YOLOV8_TENSORRT)
 ocr_engine = OCREngineFactory.create(OCREngineType.PADDLE_OCR)
 translator = TranslatorFactory.create(TranslatorType.GEMMA_4_E2B_LLAMACPP_PYTHON)
 inpainter = InpainterFactory.create(InpainterType.LAMA)
@@ -310,6 +310,23 @@ def process_comic_folder(
 
     GLOBAL_STATE["running"] = False
 
+    # --- RESET---
+    try:
+        # Xóa các biến tham chiếu đến model cũ
+        if "detector" in globals():
+            del detector
+        if "ocr_engine" in globals():
+            del ocr_engine
+        if "translator" in globals():
+            del translator
+        if "inpainter" in globals():
+            del inpainter
+
+        # Gọi hàm dọn dẹp chuyên sâu
+        clear_memory()
+    except Exception as e:
+        logger.warning(f"Lỗi khi dọn dẹp: {e}")
+
     yield (
         "🚀 HOÀN TẤT!",
         list_orig,
@@ -342,7 +359,7 @@ with gr.Blocks(title="Comic Pro Translator", fill_width=True) as demo:
                 with gr.Row():
                     sel_detector = gr.Dropdown(
                         choices=[e.value for e in BubbleDetectorType],
-                        value=BubbleDetectorType.YOLOV8.value,
+                        value=BubbleDetectorType.YOLOV8_TENSORRT.value,
                         label="Detector Model",
                         show_label=False,
                     )
@@ -360,7 +377,7 @@ with gr.Blocks(title="Comic Pro Translator", fill_width=True) as demo:
                         gr.Markdown("### 🔍 OCR Model")
                         sel_ocr = gr.Dropdown(
                             choices=[e.value for e in OCREngineType],
-                            value=OCREngineType.PADDLE_OCR.value,
+                            value=OCREngineType.PP_OCR_V5_SERVER.value,
                             label="OCR Model",
                             show_label=False,
                         )
