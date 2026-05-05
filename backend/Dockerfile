@@ -8,8 +8,6 @@ WORKDIR /app
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     libgl1 \
     libglib2.0-0 \
-    gcc \
-    g++ \
     fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
@@ -29,8 +27,6 @@ ENV PYTHONUNBUFFERED=1
 
 # install
 COPY install/ /app/install/
-RUN chmod +x install/install_llama_cpp_python.sh
-RUN /bin/bash /app/install/install_llama_cpp_python.sh
 
 
 # Mở port cho Gradio

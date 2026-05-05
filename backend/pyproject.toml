@@ -5,49 +5,37 @@ requires-python = ">=3.10,<3.11"
 dependencies = [
     "gradio>=6.11.0",
     "opencv-python",
-    "setuptools>=70",
-    # =========================
+
     # YOLO / CV
-    # =========================
-    "ultralytics>=8.3.70",          # >= 8.3.70 để hỗ trợ tốt Torch 2.6
-    # =========================
+    "ultralytics>=8.3.70",
+
     # PYTORCH (CUDA 12.6)
-    # =========================
     "torch==2.6.0",
     "torchvision==0.21.0",
-    "torchaudio==2.6.0",
-    # =========================
+
     # NLP / OCR
-    # =========================
-    "ctranslate2>=4.7.1",
     "sentencepiece>=0.2.1",
     "transformers>=5.5.0",
     "paddleocr>=3.4.0",
-    # =========================
+
     # ONNX
-    # =========================
     "onnx>=1.21.0",
-    "onnxruntime-gpu==1.20.1",      # Phiên bản mới nhất hỗ trợ CUDA 12.x tốt
-    # =========================
+
     # IMAGE
-    # =========================
     "simple-lama-inpainting>=0.1.0",
-    # =========================
+
     # PADDLE GPU (cu126)
-    # =========================
-    "paddlepaddle-gpu==3.3.1",       # Hoặc 3.2.1 nếu 3.3.1 chưa ổn định
-    # =========================
+    "paddlepaddle-gpu==3.3.1",
+
     # NUMPY
-    # =========================
     "numpy<2",
+
+    # TensorRT
     "tensorrt-cu12>=10.16.1.11",
     "tensorrt-cu12-bindings>=10.16.1.11",
     "tensorrt-cu12-libs>=10.16.1.11",
 ]
 
-# =========================
-# CUDA 12.6 INDEX
-# =========================
 [[tool.uv.index]]
 name = "torch-cu126"
 url = "https://download.pytorch.org/whl/cu126"
@@ -58,13 +46,9 @@ name = "paddle-cu126"
 url = "https://www.paddlepaddle.org.cn/packages/stable/cu126/"
 explicit = true
 
-# =========================
-# PACKAGE BINDING (Sources)
-# =========================
 [tool.uv.sources]
 torch = { index = "torch-cu126" }
 torchvision = { index = "torch-cu126" }
-torchaudio = { index = "torch-cu126" }
 paddlepaddle-gpu = { index = "paddle-cu126" }
 
 [tool.ruff]

@@ -23,8 +23,8 @@ logger = logging.getLogger("MAIN")
 
 # ── INIT ENGINE ─────────────────────────────────────────────
 detector = BubbleDetectorFactory.create(BubbleDetectorType.YOLOV8_TENSORRT)
-ocr_engine = OCREngineFactory.create(OCREngineType.PADDLE_OCR)
-translator = TranslatorFactory.create(TranslatorType.GEMMA_4_E2B_LLAMACPP_PYTHON)
+ocr_engine = OCREngineFactory.create(OCREngineType.PP_OCR_V5_MOBILE)
+translator = TranslatorFactory.create(TranslatorType.HY_MT1_5_1_8B_Q4_K_M)
 inpainter = InpainterFactory.create(InpainterType.LAMA)
 renderer = PILCenteredTextRenderer()
 
@@ -396,7 +396,7 @@ with gr.Blocks(title="Comic Pro Translator", fill_width=True) as demo:
                         gr.Markdown("### 🌐 Translation Model")
                         sel_translator = gr.Dropdown(
                             choices=[e.value for e in TranslatorType],
-                            value=TranslatorType.GEMMA_4_E2B_LLAMACPP_PYTHON.value,
+                            value=TranslatorType.HY_MT1_5_1_8B_Q4_K_M.value,
                             label="Translation Model",
                             show_label=False,
                         )
