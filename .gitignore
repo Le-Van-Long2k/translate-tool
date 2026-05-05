@@ -43,7 +43,7 @@ backend/bubble_detector/comic.engine
 backend/translator/nllb-600M-ct2-float16/
 backend/translated_output/
 backend/translator/translate_models/**
-
+backend/translator/models/**
 # =========================
 # Node (frontend)
 # =========================
