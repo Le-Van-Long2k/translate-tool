@@ -6,7 +6,7 @@ from inpainting.lama_inpaintor import LamaInpaintor
 from inpainting.opencv_inpaintor import OpencvInpaintor
 
 
-class InpainterType(Enum):
+class InpainterType(str, Enum):
     LAMA = "lama"
     OPENCV = "opencv"
 

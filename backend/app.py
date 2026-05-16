@@ -214,7 +214,7 @@ def process_comic_folder(
             # 3. Translate
             t0 = time.perf_counter()
             original_texts = [item.get("text", "").strip() for item in ocr_results]
-            translated_texts = translator.translate_batch(
+            translated_texts = await translator.translate_batch(
                 original_texts, from_lang=source_lang, to_lang=target_lang
             )
             t_translate = time.perf_counter() - t0
@@ -226,16 +226,11 @@ def process_comic_folder(
 
             # 4. Inpainting (Xóa chữ)
             t0 = time.perf_counter()
-            all_word_boxes = []
-            for i, item in enumerate(ocr_results):
-                bx1, by1, _, _ = map(int, boxes[i])
-                for wb in item.get("boxes", []):
-                    all_word_boxes.append([[x + bx1, y + by1] for x, y in wb])
 
-            cleaned_img = (
-                inpainter.inpaint_from_boxes(image.copy(), all_word_boxes)
-                if all_word_boxes
-                else image.copy()
+            cleaned_img = inpainter.inpaint_from_boxes(
+                image=image,
+                crop_boxes=boxes,
+                ocr_results=ocr_results,
             )
             list_inpaint.append((to_rgb(cleaned_img), f"Inpaint: {filename}"))
             t_inpaint = time.perf_counter() - t0

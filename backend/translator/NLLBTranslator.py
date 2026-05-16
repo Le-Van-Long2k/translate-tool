@@ -26,7 +26,7 @@ class NLLBTranslator(ITranslator):
             model_path,
             device=device,
             device_index=0,
-            compute_type="float16",  # Tối ưu cho RTX 3060
+            compute_type="float16",
         )
 
         load_time = time.time() - start_load

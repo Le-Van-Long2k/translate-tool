@@ -5,35 +5,30 @@ requires-python = ">=3.10,<3.11"
 dependencies = [
     "gradio>=6.11.0",
     "opencv-python",
-
     # YOLO / CV
     "ultralytics>=8.3.70",
-
     # PYTORCH (CUDA 12.6)
     "torch==2.6.0",
     "torchvision==0.21.0",
-
     # NLP / OCR
     "sentencepiece>=0.2.1",
     "transformers>=5.5.0",
     "paddleocr>=3.4.0",
-
     # ONNX
     "onnx>=1.21.0",
-
     # IMAGE
     "simple-lama-inpainting>=0.1.0",
-
     # PADDLE GPU (cu126)
     "paddlepaddle-gpu==3.3.1",
-
     # NUMPY
     "numpy<2",
-
     # TensorRT
     "tensorrt-cu12>=10.16.1.11",
     "tensorrt-cu12-bindings>=10.16.1.11",
     "tensorrt-cu12-libs>=10.16.1.11",
+    "accelerate>=1.13.0",
+    "fastapi>=0.136.1",
+    "uvicorn[standard]>=0.47.0",
 ]
 
 [[tool.uv.index]]

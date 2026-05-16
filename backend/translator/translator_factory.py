@@ -9,15 +9,15 @@ from translator.translator import ITranslator
 # )
 
 
-class TranslatorType(Enum):
+class TranslatorType(str, Enum):
     HY_MT1_5_1_8B_Q4_K_M = "hy_mt1_5_1_8b_q4_k_m"
     # GEMMA_4_E2B_CLIENT = "gemma_4_e2b_v1"
     # GEMMA_4_E2B_LLAMACPP_PYTHON = "gemma_4_e2b_v2"
 
 
 MODEL_REGISTRY = {
-    TranslatorType.HY_MT1_5_1_8B_Q4_K_M: TencentTranslatorEngine,
     # TranslatorType.GEMMA_4_E2B_CLIENT: Gemma4E2BClientTranslator,
+    TranslatorType.HY_MT1_5_1_8B_Q4_K_M: TencentTranslatorEngine,
     # TranslatorType.GEMMA_4_E2B_LLAMACPP_PYTHON: Gemma4E2BLlamaCppPythonTranslator,
 }
 

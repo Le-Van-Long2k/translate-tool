@@ -31,6 +31,7 @@ COPY install/ /app/install/
 
 # Mở port cho Gradio
 EXPOSE 7860
+EXPOSE 8052
 
-# Lệnh mặc định: Chạy gradio với mode reload và lắng nghe trên tất cả interface
-CMD ["uv", "run", "gradio", "app.py"]
+# CMD ["uv", "run", "gradio", "app.py"]
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8052"]

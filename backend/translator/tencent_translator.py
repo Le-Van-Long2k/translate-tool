@@ -1,8 +1,9 @@
 import asyncio
-import httpx
+import logging
 import time
 from typing import List
-import logging
+
+import httpx
 
 from translator.translator import ITranslator
 
@@ -23,27 +24,65 @@ class TencentTranslatorEngine(ITranslator):
         self.max_concurrency = max_concurrency
 
     # =========================
-    # CORE TASK (GIỐNG TEST CODE)
+    # SINGLE TRANSLATE
     # =========================
-    async def _translate_one(self, client, text, idx, from_lang, to_lang, context):
+    async def _translate_one(
+        self,
+        client: httpx.AsyncClient,
+        text: str,
+        idx: int,
+        from_lang: str,
+        to_lang: str,
+        context: str,
+    ):
         if not text:
             return idx, ""
+        
+        if from_lang == "en":
+            from_lang = "English"
+        
+        if to_lang == "vi":
+            to_lang = "Vietnamess"
 
-        prompt = f"Translate to Vietnamese: {text}"
+        prompt = f"""
+Translate the following text from {from_lang} to {to_lang}.
+
+Only return the translated text.
+Do not explain.
+Do not add notes.
+
+Text:
+{text}
+""".strip()
+
         if context:
-            prompt = f"Context: {context}\n\n{prompt}"
+            prompt = f"""
+Context:
+{context}
+
+{prompt}
+""".strip()
 
         payload = {
             "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
             "temperature": 0.2,
         }
 
         try:
-            resp = await client.post(self.url, json=payload)
-            resp.raise_for_status()
+            response = await client.post(
+                self.url,
+                json=payload,
+            )
 
-            data = resp.json()
+            response.raise_for_status()
+
+            data = response.json()
 
             content = (
                 data
@@ -53,39 +92,23 @@ class TencentTranslatorEngine(ITranslator):
                 .strip()
             )
 
+            logger.info(f"[{idx}] Original: {text}")
+            logger.info(f"[{idx}] Translate: {content}")
+            logger.info(f"[{idx}] Translate success")
+
             return idx, content
 
         except Exception as e:
-            logger.error(f"[{idx}] Translate error: {e}")
+            logger.exception(
+                f"[{idx}] Translate error: {e}"
+            )
+
             return idx, ""
 
     # =========================
-    # BATCH (PURE GATHER LIKE TEST)
+    # BATCH TRANSLATE
     # =========================
-    async def _translate_batch_async(self, texts, from_lang, to_lang, context):
-        start = time.perf_counter()
-
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            tasks = [
-                self._translate_one(client, text, idx, from_lang, to_lang, context)
-                for idx, text in enumerate(texts)
-            ]
-
-            results = await asyncio.gather(*tasks)
-
-        outputs = [""] * len(texts)
-        for idx, content in results:
-            outputs[idx] = content
-
-        end = time.perf_counter()
-        print(f"Tencent async batch time: {end - start:.3f}s")
-
-        return outputs
-
-    # =========================
-    # SYNC WRAPPER
-    # =========================
-    def translate_batch(
+    async def _translate_batch_async(
         self,
         texts: List[str],
         from_lang: str,
@@ -96,15 +119,65 @@ class TencentTranslatorEngine(ITranslator):
         if not texts:
             return []
 
-        try:
-            return asyncio.run(
-                self._translate_batch_async(texts, from_lang, to_lang, context)
+        start = time.perf_counter()
+
+        semaphore = asyncio.Semaphore(
+            self.max_concurrency
+        )
+
+        async with httpx.AsyncClient(
+            timeout=self.timeout
+        ) as client:
+
+            async def run_task(text, idx):
+                async with semaphore:
+                    return await self._translate_one(
+                        client=client,
+                        text=text,
+                        idx=idx,
+                        from_lang=from_lang,
+                        to_lang=to_lang,
+                        context=context,
+                    )
+
+            tasks = [
+                run_task(text, idx)
+                for idx, text in enumerate(texts)
+            ]
+
+            results = await asyncio.gather(
+                *tasks,
+                return_exceptions=False,
             )
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(
-                self._translate_batch_async(texts, from_lang, to_lang, context)
-            )
-            loop.close()
-            return result
+
+        outputs = [""] * len(texts)
+
+        for idx, content in results:
+            outputs[idx] = content
+
+        end = time.perf_counter()
+
+        logger.info(
+            f"Tencent async batch time: "
+            f"{end - start:.3f}s"
+        )
+
+        return outputs
+
+    # =========================
+    # PUBLIC API
+    # =========================
+    async def translate_batch(
+        self,
+        texts: List[str],
+        from_lang: str,
+        to_lang: str,
+        context: str = "",
+    ) -> List[str]:
+
+        return await self._translate_batch_async(
+            texts=texts,
+            from_lang=from_lang,
+            to_lang=to_lang,
+            context=context,
+        )

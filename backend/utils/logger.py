@@ -1,13 +1,15 @@
 import logging
+import os
 from datetime import datetime
 
 
 def setup_logger():
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     if not logger.handlers:
-        filename = datetime.now().strftime("log_%Y-%m-%d.log")
+        os.makedirs("logs", exist_ok=True)
+        filename = os.path.join("logs", datetime.now().strftime("log_%Y-%m-%d.log"))
 
         handler = logging.FileHandler(filename, encoding="utf-8")
 

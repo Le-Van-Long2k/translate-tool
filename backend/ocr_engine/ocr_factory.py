@@ -5,7 +5,7 @@ from ocr_engine.ocr_engine import OCREngine
 from ocr_engine.paddle_ocr_engine import PaddleOCREngine
 
 
-class OCREngineType(Enum):
+class OCREngineType(str, Enum):
     PP_OCR_V5_SERVER = "pp_ocr_v5_server"
     PP_OCR_V5_MOBILE = "pp_ocr_v5_mobile"
     PP_OCR_V4_SERVER = "pp_ocr_v4_server"

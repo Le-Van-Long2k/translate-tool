@@ -8,7 +8,7 @@ from bubble_detector.yolo_v8_bubble_detector import (
 )
 
 
-class BubbleDetectorType(Enum):
+class BubbleDetectorType(str, Enum):
     YOLOV8 = "yolov8"
     YOLOV8_TENSORRT = "yolov8_tensorrt"
 
