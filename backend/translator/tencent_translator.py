@@ -11,6 +11,7 @@ logger = logging.getLogger("TRANSLATOR")
 
 
 class TencentTranslatorEngine(ITranslator):
+
     def __init__(
         self,
         model: str = "/models/HY-MT1.5-1.8B-Q4_K_M.gguf",
@@ -23,9 +24,26 @@ class TencentTranslatorEngine(ITranslator):
         self.timeout = timeout
         self.max_concurrency = max_concurrency
 
-    # =========================
+    # =====================================================
+    # NORMALIZE LANGUAGE
+    # =====================================================
+
+    def _normalize_lang(self, lang: str) -> str:
+
+        mapping = {
+            "en": "English",
+            "vi": "Vietnamese",
+            "ja": "Japanese",
+            "zh": "Chinese",
+            "ko": "Korean",
+        }
+
+        return mapping.get(lang.lower(), lang)
+
+    # =====================================================
     # SINGLE TRANSLATE
-    # =========================
+    # =====================================================
+
     async def _translate_one(
         self,
         client: httpx.AsyncClient,
@@ -33,48 +51,59 @@ class TencentTranslatorEngine(ITranslator):
         idx: int,
         from_lang: str,
         to_lang: str,
-        context: str,
+        context: str = "",
     ):
-        if not text:
+
+        if not text or not text.strip():
             return idx, ""
-        
-        if from_lang == "en":
-            from_lang = "English"
-        
-        if to_lang == "vi":
-            to_lang = "Vietnamess"
 
-        prompt = f"""
-Translate the following text from {from_lang} to {to_lang}.
+        from_lang = self._normalize_lang(from_lang)
+        to_lang = self._normalize_lang(to_lang)
 
-Only return the translated text.
-Do not explain.
-Do not add notes.
+        # -----------------------------
+        # SYSTEM PROMPT
+        # -----------------------------
 
-Text:
-{text}
-""".strip()
+        system_prompt = (
+            f"You are a professional translator.\n"
+            f"Translate from {from_lang} to {to_lang}.\n"
+            f"Only output the translated text.\n"
+            f"Do not explain.\n"
+            f"Do not add notes.\n"
+            f"Do not repeat the input.\n"
+            f"If the text is not actually written in {from_lang}, do not translate it.\n"
+            f"Keep the original text unchanged in that case."
+        )
 
         if context:
-            prompt = f"""
-Context:
-{context}
+            system_prompt += f"\n\nContext:\n{context}"
 
-{prompt}
-""".strip()
+        # -----------------------------
+        # PAYLOAD
+        # -----------------------------
 
         payload = {
             "model": self.model,
             "messages": [
                 {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
                     "role": "user",
-                    "content": prompt,
-                }
+                    "content": text,
+                },
             ],
-            "temperature": 0.2,
+            "temperature": 0.0,
+            "max_tokens": 512,
         }
 
+        # -----------------------------
+        # REQUEST
+        # -----------------------------
+
         try:
+
             response = await client.post(
                 self.url,
                 json=payload,
@@ -99,15 +128,17 @@ Context:
             return idx, content
 
         except Exception as e:
+
             logger.exception(
                 f"[{idx}] Translate error: {e}"
             )
 
             return idx, ""
 
-    # =========================
+    # =====================================================
     # BATCH TRANSLATE
-    # =========================
+    # =====================================================
+
     async def _translate_batch_async(
         self,
         texts: List[str],
@@ -125,12 +156,20 @@ Context:
             self.max_concurrency
         )
 
+        limits = httpx.Limits(
+            max_connections=100,
+            max_keepalive_connections=20,
+        )
+
         async with httpx.AsyncClient(
-            timeout=self.timeout
+            timeout=self.timeout,
+            limits=limits,
         ) as client:
 
             async def run_task(text, idx):
+
                 async with semaphore:
+
                     return await self._translate_one(
                         client=client,
                         text=text,
@@ -164,9 +203,10 @@ Context:
 
         return outputs
 
-    # =========================
+    # =====================================================
     # PUBLIC API
-    # =========================
+    # =====================================================
+
     async def translate_batch(
         self,
         texts: List[str],

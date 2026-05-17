@@ -1,0 +1,69 @@
+///////////////
+<!-- popup.html -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Capture Tool</title>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        width: 220px;
+        padding: 10px;
+      }
+
+      h3 {
+        margin: 0 0 10px;
+      }
+
+      button {
+        width: 100%;
+        padding: 8px;
+        margin-top: 8px;
+        cursor: pointer;
+        border: none;
+        border-radius: 6px;
+        background: #4caf50;
+        color: white;
+        font-size: 14px;
+      }
+
+      button:hover {
+        background: #45a049;
+      }
+
+      .danger {
+        background: #f44336;
+      }
+
+      .danger:hover {
+        background: #d32f2f;
+      }
+
+      .info {
+        background: #2196f3;
+      }
+
+      .info:hover {
+        background: #0b7dda;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h3>Capture Tool</h3>
+
+    <!-- Button to set capture region -->
+    <button id="setRegion">📐 Set capture area</button>
+    
+    <!-- Button to view results -->
+    <button id="viewResults" class="info">👁 View results</button>
+
+    <!-- Button to clear saved region -->
+    <button id="clearRegion" class="danger">🗑 Reset area</button>
+
+    <!-- Load external JS (required in Manifest V3) -->
+    <script src="popup.js"></script>
+  </body>
+</html>

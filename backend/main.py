@@ -104,12 +104,11 @@ CONFIG.font_size = 28
 # =========================
 # GLOBAL MODELS
 # =========================
-
 DETECTOR = None
 OCR_ENGINE = None
 TRANSLATOR = None
 INPAINTER = None
-RENDERER = None
+RENDERER = PILCenteredTextRenderer()
 
 
 # =========================
@@ -118,24 +117,21 @@ RENDERER = None
 
 def clear_memory():
     gc.collect()
-
     if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+        with torch.cuda.device(torch.cuda.current_device()):
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
 
-    logger.info("Memory cleaned")
-
+    logger.info("🧹 Đã dọn dẹp sạch sẽ VRAM và RAM.")
 
 # =========================
-# STARTUP
+# MODEL MANAGER
 # =========================
-
-@app.on_event("startup")
-async def startup_event():
+def load_models():
     global DETECTOR
     global OCR_ENGINE
     global TRANSLATOR
     global INPAINTER
-    global RENDERER
 
     logger.info("Loading models...")
 
@@ -155,11 +151,120 @@ async def startup_event():
         CONFIG.inpaint_model
     )
 
-    RENDERER = PILCenteredTextRenderer()
-
     logger.info("Models loaded")
 
+def unload_models():
+    global DETECTOR
+    global OCR_ENGINE
+    global TRANSLATOR
+    global INPAINTER
 
+    logger.info("Unloading models...")
+
+    try:
+        if DETECTOR in globals():
+            del DETECTOR
+
+        if OCR_ENGINE in globals():
+            del OCR_ENGINE
+
+        if TRANSLATOR in globals():
+            del TRANSLATOR
+
+        if INPAINTER in globals():
+            del INPAINTER
+
+    except Exception:
+        logger.exception("Error while unloading models")
+
+    DETECTOR = None
+    OCR_ENGINE = None
+    TRANSLATOR = None
+    INPAINTER = None
+
+    clear_memory()
+
+    logger.info("Models unloaded")
+
+
+# =========================
+# STARTUP
+# =========================
+
+@app.on_event("startup")
+async def startup_event():
+    load_models()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    unload_models()
+
+# =========================
+# CLEAN MEMORY
+# =========================
+
+@app.post("/cleanup")
+async def cleanup():
+
+    if PROCESS_LOCK.locked():
+        raise HTTPException(
+            status_code=429,
+            detail="Server is busy"
+        )
+
+    async with PROCESS_LOCK:
+        unload_models()
+
+        return JSONResponse({
+            "status": "ok",
+            "message": "Memory cleaned"
+        })
+# =========================
+# UNLOAD MODELS
+# =========================
+
+@app.post("/unload_models")
+async def unload_models_api():
+
+    if PROCESS_LOCK.locked():
+        raise HTTPException(
+            status_code=429,
+            detail="Server is busy"
+        )
+
+    async with PROCESS_LOCK:
+
+        unload_models()
+
+        return JSONResponse({
+            "status": "ok",
+            "message": "Models unloaded"
+        })
+
+# =========================
+# RELOAD MODELS
+# =========================
+
+@app.post("/reload_models")
+async def reload_models_api():
+
+    if PROCESS_LOCK.locked():
+        raise HTTPException(
+            status_code=429,
+            detail="Server is busy"
+        )
+
+    async with PROCESS_LOCK:
+
+        unload_models()
+
+        load_models()
+
+        return JSONResponse({
+            "status": "ok",
+            "message": "Models reloaded"
+        })
+    
 # =========================
 # CONFIG API
 # =========================
@@ -183,61 +288,43 @@ async def set_config(cfg: ConfigModel):
         try:
             logger.info("Reloading models...")
 
-            old_detector = DETECTOR
-            old_ocr = OCR_ENGINE
-            old_translator = TRANSLATOR
-            old_inpainter = INPAINTER
-
-            DETECTOR = None
-            OCR_ENGINE = None
-            TRANSLATOR = None
-            INPAINTER = None
-
-            del old_detector
-            del old_ocr
-            del old_translator
-            del old_inpainter
-
-            clear_memory()
-
             # update config
-            if cfg.font_size is not None:
+            if cfg.font_size != CONFIG.font_size:
                 CONFIG.font_size = cfg.font_size
 
-            if cfg.source_lang is not None:
+            if cfg.source_lang != CONFIG.source_lang:
                 CONFIG.source_lang = cfg.source_lang
 
-            if cfg.target_lang is not None:
+            if cfg.target_lang != CONFIG.target_lang:
                 CONFIG.target_lang = cfg.target_lang
 
-            if cfg.detect_model is not None:
+            if cfg.detect_model != CONFIG.detect_model:
+                del DETECTOR
                 CONFIG.detect_model = cfg.detect_model
+                DETECTOR = BubbleDetectorFactory.create(
+                    CONFIG.detect_model
+                )
 
-            if cfg.ocr_model is not None:
+            if cfg.ocr_model != CONFIG.ocr_model:
+                del OCR_ENGINE
                 CONFIG.ocr_model = cfg.ocr_model
+                OCR_ENGINE = OCREngineFactory.create(
+                    CONFIG.ocr_model
+                )
 
-            if cfg.inpaint_model is not None:
+            if cfg.inpaint_model != CONFIG.inpaint_model:
+                del INPAINTER
                 CONFIG.inpaint_model = cfg.inpaint_model
+                INPAINTER = InpainterFactory.create(
+                    CONFIG.inpaint_model
+                )
 
-            if cfg.translate_model is not None:
+            if cfg.translate_model != CONFIG.translate_model:
+                del TRANSLATOR
                 CONFIG.translate_model = cfg.translate_model
-
-            # recreate
-            DETECTOR = BubbleDetectorFactory.create(
-                CONFIG.detect_model
-            )
-
-            OCR_ENGINE = OCREngineFactory.create(
-                CONFIG.ocr_model
-            )
-
-            TRANSLATOR = TranslatorFactory.create(
-                CONFIG.translate_model
-            )
-
-            INPAINTER = InpainterFactory.create(
-                CONFIG.inpaint_model
-            )
+                TRANSLATOR = TranslatorFactory.create(
+                    CONFIG.translate_model
+                )
 
             logger.info("Models reloaded")
 
@@ -277,7 +364,7 @@ def _read_image_from_upload(data: bytes):
 @app.post("/translate_comic")
 async def translate_comic(
     file: UploadFile = File(...),
-    font_size: Optional[int] = Form(None),
+    font_size: Optional[int] = Form(CONFIG.font_size),
     conf_threshold: float = Form(0.25),
 ):
     global DETECTOR
@@ -309,103 +396,44 @@ async def translate_comic(
             )
 
         # detect
-        try:
-            with torch.inference_mode():
-                boxes = DETECTOR.detect(
-                    image,
-                    conf_threshold
-                )
-
-        except Exception:
-            logger.exception("Detection error")
-            boxes = []
+        with torch.inference_mode():
+            boxes = DETECTOR.detect(
+                image,
+                conf_threshold
+            )
 
         # crop bubbles
-        bubbles = []
-
-        for (x1, y1, x2, y2) in boxes:
-
-            x1 = int(x1)
-            y1 = int(y1)
-            x2 = int(x2)
-            y2 = int(y2)
-
-            crop = image[y1:y2, x1:x2]
-
-            if crop.size > 0:
-                bubbles.append(crop)
-
-        # OCR
-        try:
-            ocr_results = (
-                OCR_ENGINE.ocr(bubbles)
-                if bubbles
-                else []
-            )
-
-        except Exception:
-            logger.exception("OCR error")
-            ocr_results = []
-
-        # extract text
-        original_texts = [
-            (item or {}).get("text", "").strip()
-            for item in ocr_results
+        bubbles = [
+            image[int(y1) : int(y2), int(x1) : int(x2)]
+            for (x1, y1, x2, y2) in boxes
         ]
 
-        # translate
-        try:
-            translated_texts = (
-                await TRANSLATOR.translate_batch(
-                    original_texts,
-                    from_lang=CONFIG.source_lang,
-                    to_lang=CONFIG.target_lang
-                )
-                if original_texts
-                else []
-            )
+        # OCR
+        ocr_results = OCR_ENGINE.ocr(bubbles)
 
-        except Exception:
-            logger.exception("Translation error")
-            translated_texts = []
+        # translate
+        original_texts = [item.get("text", "").strip() for item in ocr_results]
+        translated_texts = await TRANSLATOR.translate_batch(
+                original_texts,
+                from_lang=CONFIG.source_lang,
+                to_lang=CONFIG.target_lang
+            )
 
         # inpaint
-        try:
-            cleaned = INPAINTER.inpaint_from_boxes(
-                image=image.copy(),
-                crop_boxes=boxes,
-                ocr_results=ocr_results
-            )
-
-        except Exception:
-            logger.exception("Inpaint error")
-
-            cleaned = image.copy()
-
-        # render
-        final_img = cleaned
-
-        fs = (
-            int(font_size)
-            if font_size is not None
-            else CONFIG.font_size
+        cleaned = INPAINTER.inpaint_from_boxes(
+            image=image,
+            crop_boxes=boxes,
+            ocr_results=ocr_results
         )
 
+        # render
+        final_img = cleaned.copy()
+        CONFIG.font_size = font_size
         for box, text in zip(boxes, translated_texts):
-
-            if not text:
-                continue
-
-            try:
+            if text:
                 final_img = RENDERER.draw_text_in_box(
-                    final_img,
-                    str(text).capitalize(),
-                    box,
-                    font_size=fs
+                    final_img, str(text).capitalize(), box, font_size=CONFIG.font_size
                 )
-
-            except Exception:
-                logger.exception("Render error")
 
         total = time.perf_counter() - start_time
 
@@ -439,7 +467,6 @@ async def translate_comic(
 @app.post("/translate_one_box_chat")
 async def translate_one_box_chat(
     file: UploadFile = File(...),
-    box: str = Form(...),
 ):
     global OCR_ENGINE
     global TRANSLATOR
@@ -465,81 +492,26 @@ async def translate_one_box_chat(
                 detail="Invalid image file"
             )
 
-        try:
-            x1, y1, x2, y2 = map(
-                int,
-                box.split(",")
-            )
-
-        except Exception:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid box format"
-            )
-
         h, w = image.shape[:2]
 
-        x1 = max(0, min(x1, w))
-        x2 = max(0, min(x2, w))
-        y1 = max(0, min(y1, h))
-        y2 = max(0, min(y2, h))
-
-        if x2 <= x1 or y2 <= y1:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid box coordinates"
-            )
-
-        crop = image[y1:y2, x1:x2]
-
         # OCR
-        t0 = time.perf_counter()
+        ocr_results = OCR_ENGINE.ocr([image])
 
-        try:
-            ocr_results = OCR_ENGINE.ocr([crop])
-
-        except Exception:
-            logger.exception("OCR error")
-            ocr_results = []
-
-        t_ocr = time.perf_counter() - t0
-
-        orig = (
-            (ocr_results[0] or {}).get("text", "").strip()
-            if ocr_results
-            else ""
-        )
 
         # Translate
-        t0 = time.perf_counter()
-
-        try:
-            translated = (
-                await TRANSLATOR.translate(
-                    orig,
-                    from_lang=CONFIG.source_lang,
-                    to_lang=CONFIG.target_lang
-                )
-                if orig
-                else ""
+        original_texts = [item.get("text", "").strip() for item in ocr_results]
+        translated_texts = await TRANSLATOR.translate_batch(
+                original_texts,
+                from_lang=CONFIG.source_lang,
+                to_lang=CONFIG.target_lang
             )
-
-        except Exception:
-            logger.exception("Translation error")
-            translated = ""
-
-        t_translate = time.perf_counter() - t0
 
         total = time.perf_counter() - start
 
         return JSONResponse({
-            "original": orig,
-            "translated": translated,
-            "timings": {
-                "ocr": round(t_ocr, 4),
-                "translate": round(t_translate, 4),
-                "total": round(total, 4),
-            },
+            "original": original_texts[0] if original_texts else "",
+            "translated": translated_texts[0] if translated_texts else "",
+            "timings": round(total, 4),
         })
 
 
@@ -550,9 +522,21 @@ async def translate_one_box_chat(
 @app.get("/health")
 async def health():
 
+    gpu_mem = None
+
+    if torch.cuda.is_available():
+        gpu_mem = {
+            "allocated_mb":
+                round(torch.cuda.memory_allocated() / 1024 / 1024, 2),
+
+            "reserved_mb":
+                round(torch.cuda.memory_reserved() / 1024 / 1024, 2),
+        }
+
     return JSONResponse({
         "status": "ok",
         "busy": PROCESS_LOCK.locked(),
+        "gpu": gpu_mem,
         "models": {
             "detector": DETECTOR is not None,
             "ocr": OCR_ENGINE is not None,

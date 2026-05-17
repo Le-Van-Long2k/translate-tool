@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "Capture Area Tool",
+  "version": "1.0",
+
+  "permissions": ["activeTab", "scripting", "tabs", "storage"],
+
+  "host_permissions": ["<all_urls>"],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "action": {
+    "default_popup": "popup.html"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+
+  "commands": {
+    "start-capture": {
+      "suggested_key": {
+        "default": "Alt + Q"
+      },
+      "description": "Capture saved area"
+    }
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["result.html", "result.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
