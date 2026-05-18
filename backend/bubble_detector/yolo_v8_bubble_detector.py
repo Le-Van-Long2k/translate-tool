@@ -86,9 +86,10 @@ class YOLOv8TensorRT(BubbleDetector):
     def detect(self, image: np.ndarray, conf: float = 0.1) -> List[Dict[str, Any]]:
         start_time = time.perf_counter()
 
-        results = self.model.predict(
-            source=image, device=self.device, conf=conf, imgsz=640, verbose=False
-        )[0]
+        with torch.inference_mode():
+            results = self.model.predict(
+                source=image, device=self.device, conf=conf, imgsz=640, verbose=False
+            )[0]
 
         boxes = []
         if len(results.boxes) > 0:
@@ -105,3 +106,22 @@ class YOLOv8TensorRT(BubbleDetector):
         logger.debug(f"Detected {len(boxes)} bubbles in image")
 
         return boxes
+
+    def close(self):
+
+        logger.info("Closing TensorRT detector...")
+
+        try:
+
+            if self.model is not None:
+
+                predictor = getattr(self.model, "predictor", None)
+
+                if predictor is not None:
+
+                    predictor.model = None
+
+                self.model = None
+
+        except Exception:
+            logger.exception("Failed to close TensorRT detector")

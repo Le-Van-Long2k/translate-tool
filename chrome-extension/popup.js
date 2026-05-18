@@ -5,7 +5,6 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("[Popup] Popup loaded");
 
   const setBtn = document.getElementById("setRegion");
-  const clearBtn = document.getElementById("clearRegion");
   const viewBtn = document.getElementById("viewResults");
 
   // ===== VIEW RESULTS BUTTON =====
@@ -43,20 +42,22 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("[Popup] Active tab:", tab.id, tab.url);
 
       // Inject content script to ensure it's loaded
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ["content.js"]
-      });
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["content.js"]
+        });
+        console.log("[Popup] content.js injected");
+      } catch (injectionErr) {
+        console.error("[Popup] Failed to inject content.js:", injectionErr);
+      }
 
-      console.log("[Popup] content.js injected");
-
-      // Send message to start selection mode
-      chrome.tabs.sendMessage(tab.id, { type: "START_SELECTION" }, () => {
+      // Send message to start selection mode using Promise-based API
+      chrome.tabs.sendMessage(tab.id, { type: "START_SELECTION" }, (response) => {
         if (chrome.runtime.lastError) {
           console.error("[Popup] START_SELECTION failed:", chrome.runtime.lastError.message);
-          alert("Không thể bắt đầu chọn vùng. Hãy thử lại trên một trang web bình thường.");
         } else {
-          console.log("[Popup] Message sent: START_SELECTION");
+          console.log("[Popup] Message sent successfully, response:", response);
         }
 
         window.close();
@@ -67,15 +68,4 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // ===== CLEAR REGION BUTTON =====
-  clearBtn.onclick = () => {
-    console.log("[Popup] Clear region button clicked");
-
-    chrome.storage.local.remove("rect", () => {
-      console.log("[Popup] Saved region removed");
-
-      // Optional feedback
-      alert("Capture area has been cleared");
-    });
-  };
 });

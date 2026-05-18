@@ -27,8 +27,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const blob = new Blob([uint8Array], { type: "image/jpeg" });
         const formData = new FormData();
         formData.append("file", blob, "capture.jpg");
-        formData.append("font_size", msg.font_size || 32);
-        formData.append("conf_threshold", msg.conf_threshold || 0.25);
+        formData.append(
+          "font_size_ratio",
+          String(msg.font_size_ratio ?? 1.0)
+        );
+
+        formData.append(
+          "conf_threshold",
+          String(msg.conf_threshold ?? 0.25)
+        );
 
         console.log("[Background] Sending request to backend...");
         const response = await fetch("http://localhost:8052/translate_comic", {

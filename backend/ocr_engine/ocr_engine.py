@@ -7,3 +7,7 @@ class OCREngine(ABC):
     @abstractmethod
     def ocr(self, images: Union[np.ndarray, List[np.ndarray]]):
         pass
+
+    @abstractmethod
+    def close(self):
+        pass

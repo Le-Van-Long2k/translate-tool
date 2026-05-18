@@ -16,10 +16,11 @@
   });
 
   // Listen messages
-  chrome.runtime.onMessage.addListener((msg) => {
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === "START_SELECTION") {
       console.log("[Content] Start selection triggered");
       startSelection();
+      sendResponse({ status: "selection_started" });
     }
 
     if (msg.type === "CAPTURE_SAVED") {
@@ -27,10 +28,12 @@
 
       if (!savedRect) {
         alert("No region saved!");
+        sendResponse({ status: "error", message: "No region saved" });
         return;
       }
 
       capture(savedRect);
+      sendResponse({ status: "capture_started" });
     }
   });
 
@@ -150,7 +153,7 @@
             const response = await chrome.runtime.sendMessage({
               type: "TRANSLATE_COMIC",
               imageData: Array.from(new Uint8Array(arrayBuffer)),
-              font_size: 12,
+              font_size_ratio: 1.0,
               conf_threshold: 0.25
             });
 

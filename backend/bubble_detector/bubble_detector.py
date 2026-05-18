@@ -8,3 +8,7 @@ class BubbleDetector(ABC):
     @abstractmethod
     def detect(self, image: np.ndarray, conf: float = 0.25) -> List[Dict[str, Any]]:
         pass
+    
+    @abstractmethod
+    def close(self):
+        pass

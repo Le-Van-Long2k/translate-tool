@@ -1,16 +1,18 @@
+from contextlib import asynccontextmanager
 from enum import Enum
 import asyncio
 import gc
 import logging
 import time
 from typing import Optional
-
+import threading
 import cv2
 import numpy as np
 import torch
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
+import uvicorn
 
 from bubble_detector.bubble_detector_factory import (
     BubbleDetectorFactory,
@@ -40,12 +42,22 @@ from utils.logger import setup_logger
 setup_logger()
 logger = logging.getLogger("API")
 
+# =========================
+# LIFESPAN
+# =========================
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+
+    # shutdown
+    unload_models()
+
 
 # =========================
 # APP
 # =========================
 
-app = FastAPI(title="Comic Translator API")
+app = FastAPI(title="Comic Translator API", lifespan=lifespan)
 
 
 # =========================
@@ -54,6 +66,7 @@ app = FastAPI(title="Comic Translator API")
 # =========================
 
 PROCESS_LOCK = asyncio.Lock()
+MODEL_LOCK = threading.Lock()
 
 
 # =========================
@@ -77,7 +90,7 @@ class TargetLang(str, Enum):
 # =========================
 
 class ConfigModel(BaseModel):
-    font_size: Optional[int] = None
+    font_size_ratio: Optional[float] = None
     detect_model: Optional[BubbleDetectorType] = None
     ocr_model: Optional[OCREngineType] = None
     inpaint_model: Optional[InpainterType] = None
@@ -98,14 +111,14 @@ CONFIG.inpaint_model = InpainterType.OPENCV
 CONFIG.translate_model = TranslatorType.HY_MT1_5_1_8B_Q4_K_M
 CONFIG.source_lang = SourceLang.en
 CONFIG.target_lang = TargetLang.vi
-CONFIG.font_size = 28
+CONFIG.font_size_ratio = 1.0
 
 
 # =========================
 # GLOBAL MODELS
 # =========================
 DETECTOR = None
-OCR_ENGINE = None
+OCR = None
 TRANSLATOR = None
 INPAINTER = None
 RENDERER = PILCenteredTextRenderer()
@@ -116,89 +129,112 @@ RENDERER = PILCenteredTextRenderer()
 # =========================
 
 def clear_memory():
-    gc.collect()
-    if torch.cuda.is_available():
-        with torch.cuda.device(torch.cuda.current_device()):
-            torch.cuda.empty_cache()
-            torch.cuda.ipc_collect()
 
-    logger.info("🧹 Đã dọn dẹp sạch sẽ VRAM và RAM.")
+    gc.collect()
+
+    if torch.cuda.is_available():
+        try:
+            torch.cuda.empty_cache()
+        except Exception:
+            logger.exception("CUDA cleanup failed")
+
+    logger.info("Memory cleaned")
 
 # =========================
 # MODEL MANAGER
 # =========================
+def models_loaded():
+    return (
+        DETECTOR is not None
+        and OCR is not None
+        and TRANSLATOR is not None
+        and INPAINTER is not None
+    )
+
 def load_models():
     global DETECTOR
-    global OCR_ENGINE
+    global OCR
     global TRANSLATOR
     global INPAINTER
 
-    logger.info("Loading models...")
+    with MODEL_LOCK:
 
-    DETECTOR = BubbleDetectorFactory.create(
-        CONFIG.detect_model
-    )
+        if models_loaded():
+            return
 
-    OCR_ENGINE = OCREngineFactory.create(
-        CONFIG.ocr_model
-    )
+        logger.info("Loading models...")
 
-    TRANSLATOR = TranslatorFactory.create(
-        CONFIG.translate_model
-    )
+        DETECTOR = BubbleDetectorFactory.create(
+            CONFIG.detect_model
+        )
 
-    INPAINTER = InpainterFactory.create(
-        CONFIG.inpaint_model
-    )
+        OCR = OCREngineFactory.create(
+            CONFIG.ocr_model
+        )
 
-    logger.info("Models loaded")
+        TRANSLATOR = TranslatorFactory.create(
+            CONFIG.translate_model
+        )
+
+        INPAINTER = InpainterFactory.create(
+            CONFIG.inpaint_model
+        )
+
+        logger.info("Models loaded")
+
+def ensure_models_loaded():
+
+    if models_loaded():
+        return
+
+    load_models()
 
 def unload_models():
     global DETECTOR
-    global OCR_ENGINE
+    global OCR
     global TRANSLATOR
     global INPAINTER
 
-    logger.info("Unloading models...")
+    with MODEL_LOCK:
 
-    try:
-        if DETECTOR in globals():
-            del DETECTOR
+        logger.info("Unloading models...")
+        try:
 
-        if OCR_ENGINE in globals():
-            del OCR_ENGINE
+            for model in [
+                DETECTOR,
+                OCR,
+                TRANSLATOR,
+                INPAINTER
+            ]:
 
-        if TRANSLATOR in globals():
-            del TRANSLATOR
+                if model is not None:
 
-        if INPAINTER in globals():
-            del INPAINTER
+                    if hasattr(model, "close"):
+                        model.close()
 
-    except Exception:
-        logger.exception("Error while unloading models")
+        except Exception:
+            logger.exception("Cleanup failed")
 
-    DETECTOR = None
-    OCR_ENGINE = None
-    TRANSLATOR = None
-    INPAINTER = None
+        DETECTOR = None
+        OCR = None
+        TRANSLATOR = None
+        INPAINTER = None
 
-    clear_memory()
+        clear_memory()
 
-    logger.info("Models unloaded")
+        logger.info("Models unloaded")
 
+def reload_models():
 
-# =========================
-# STARTUP
-# =========================
+    with MODEL_LOCK:
 
-@app.on_event("startup")
-async def startup_event():
-    load_models()
+        unload_models()
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    unload_models()
+        logger.info("Reloading models...")
 
+        load_models()
+
+        logger.info("Reload complete")
 # =========================
 # CLEAN MEMORY
 # =========================
@@ -219,6 +255,7 @@ async def cleanup():
             "status": "ok",
             "message": "Memory cleaned"
         })
+
 # =========================
 # UNLOAD MODELS
 # =========================
@@ -271,10 +308,7 @@ async def reload_models_api():
 
 @app.post("/config")
 async def set_config(cfg: ConfigModel):
-    global DETECTOR
-    global OCR_ENGINE
-    global TRANSLATOR
-    global INPAINTER
+
     global CONFIG
 
     if PROCESS_LOCK.locked():
@@ -285,62 +319,53 @@ async def set_config(cfg: ConfigModel):
 
     async with PROCESS_LOCK:
 
-        try:
-            logger.info("Reloading models...")
+        changed = False
 
-            # update config
-            if cfg.font_size != CONFIG.font_size:
-                CONFIG.font_size = cfg.font_size
+        if cfg.font_size_ratio is not None:
+            CONFIG.font_size_ratio = cfg.font_size_ratio
 
-            if cfg.source_lang != CONFIG.source_lang:
-                CONFIG.source_lang = cfg.source_lang
+        if cfg.source_lang is not None:
+            CONFIG.source_lang = cfg.source_lang
 
-            if cfg.target_lang != CONFIG.target_lang:
-                CONFIG.target_lang = cfg.target_lang
+        if cfg.target_lang is not None:
+            CONFIG.target_lang = cfg.target_lang
 
-            if cfg.detect_model != CONFIG.detect_model:
-                del DETECTOR
-                CONFIG.detect_model = cfg.detect_model
-                DETECTOR = BubbleDetectorFactory.create(
-                    CONFIG.detect_model
-                )
+        if (
+            cfg.detect_model is not None
+            and cfg.detect_model != CONFIG.detect_model
+        ):
+            CONFIG.detect_model = cfg.detect_model
+            changed = True
 
-            if cfg.ocr_model != CONFIG.ocr_model:
-                del OCR_ENGINE
-                CONFIG.ocr_model = cfg.ocr_model
-                OCR_ENGINE = OCREngineFactory.create(
-                    CONFIG.ocr_model
-                )
+        if (
+            cfg.ocr_model is not None
+            and cfg.ocr_model != CONFIG.ocr_model
+        ):
+            CONFIG.ocr_model = cfg.ocr_model
+            changed = True
 
-            if cfg.inpaint_model != CONFIG.inpaint_model:
-                del INPAINTER
-                CONFIG.inpaint_model = cfg.inpaint_model
-                INPAINTER = InpainterFactory.create(
-                    CONFIG.inpaint_model
-                )
+        if (
+            cfg.inpaint_model is not None
+            and cfg.inpaint_model != CONFIG.inpaint_model
+        ):
+            CONFIG.inpaint_model = cfg.inpaint_model
+            changed = True
 
-            if cfg.translate_model != CONFIG.translate_model:
-                del TRANSLATOR
-                CONFIG.translate_model = cfg.translate_model
-                TRANSLATOR = TranslatorFactory.create(
-                    CONFIG.translate_model
-                )
+        if (
+            cfg.translate_model is not None
+            and cfg.translate_model != CONFIG.translate_model
+        ):
+            CONFIG.translate_model = cfg.translate_model
+            changed = True
 
-            logger.info("Models reloaded")
+        # reload nếu đổi model
+        if changed:
+            reload_models()
 
-            return JSONResponse({
-                "status": "ok",
-                "config": CONFIG.model_dump()
-            })
-
-        except Exception as e:
-            logger.exception("Config update failed")
-
-            raise HTTPException(
-                status_code=400,
-                detail=f"Failed to update config: {e}"
-            )
-
+        return JSONResponse({
+            "status": "ok",
+            "config": CONFIG.model_dump()
+        })
 
 # =========================
 # IMAGE READER
@@ -364,15 +389,16 @@ def _read_image_from_upload(data: bytes):
 @app.post("/translate_comic")
 async def translate_comic(
     file: UploadFile = File(...),
-    font_size: Optional[int] = Form(CONFIG.font_size),
+    font_size_ratio: Optional[float] = Form(CONFIG.font_size_ratio),
     conf_threshold: float = Form(0.25),
 ):
     global DETECTOR
-    global OCR_ENGINE
+    global OCR
     global TRANSLATOR
     global INPAINTER
     global RENDERER
     global CONFIG
+    ensure_models_loaded()
 
     # reject nếu đang bận
     if PROCESS_LOCK.locked():
@@ -409,7 +435,7 @@ async def translate_comic(
         ]
 
         # OCR
-        ocr_results = OCR_ENGINE.ocr(bubbles)
+        ocr_results = OCR.ocr(bubbles)
 
         # translate
         original_texts = [item.get("text", "").strip() for item in ocr_results]
@@ -428,11 +454,11 @@ async def translate_comic(
 
         # render
         final_img = cleaned.copy()
-        CONFIG.font_size = font_size
-        for box, text in zip(boxes, translated_texts):
+        CONFIG.font_size_ratio = font_size_ratio
+        for box, text, ocr_result in zip(boxes, translated_texts, ocr_results):
             if text:
                 final_img = RENDERER.draw_text_in_box(
-                    final_img, str(text).capitalize(), box, font_size=CONFIG.font_size
+                    final_img, str(text).capitalize(), box, font_size=int(CONFIG.font_size_ratio*ocr_result["font_size"]),
                 )
 
         total = time.perf_counter() - start_time
@@ -468,9 +494,10 @@ async def translate_comic(
 async def translate_one_box_chat(
     file: UploadFile = File(...),
 ):
-    global OCR_ENGINE
+    global OCR
     global TRANSLATOR
     global CONFIG
+    ensure_models_loaded()
 
     if PROCESS_LOCK.locked():
         raise HTTPException(
@@ -492,10 +519,8 @@ async def translate_one_box_chat(
                 detail="Invalid image file"
             )
 
-        h, w = image.shape[:2]
-
         # OCR
-        ocr_results = OCR_ENGINE.ocr([image])
+        ocr_results = OCR.ocr([image])
 
 
         # Translate
@@ -539,7 +564,7 @@ async def health():
         "gpu": gpu_mem,
         "models": {
             "detector": DETECTOR is not None,
-            "ocr": OCR_ENGINE is not None,
+            "ocr": OCR is not None,
             "translator": TRANSLATOR is not None,
             "inpainter": INPAINTER is not None,
         }
@@ -551,8 +576,6 @@ async def health():
 # =========================
 
 if __name__ == "__main__":
-    import uvicorn
-
     uvicorn.run(
         app,
         host="0.0.0.0",
