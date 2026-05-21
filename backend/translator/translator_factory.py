@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Union
 
 from translator.tencent_translator import TencentTranslatorEngine
+from translator.translategemma_translator import TranslateGemmaTranslatorEngine
 from translator.translator import ITranslator
 # from translator.gemma_4_e2b_translator import (
 #     Gemma4E2BClientTranslator,
@@ -11,6 +12,7 @@ from translator.translator import ITranslator
 
 class TranslatorType(str, Enum):
     HY_MT1_5_1_8B_Q4_K_M = "hy_mt1_5_1_8b_q4_k_m"
+    TRANSLATEGEMMA_4B = "translategemma-4b"
     # GEMMA_4_E2B_CLIENT = "gemma_4_e2b_v1"
     # GEMMA_4_E2B_LLAMACPP_PYTHON = "gemma_4_e2b_v2"
 
@@ -18,6 +20,7 @@ class TranslatorType(str, Enum):
 MODEL_REGISTRY = {
     # TranslatorType.GEMMA_4_E2B_CLIENT: Gemma4E2BClientTranslator,
     TranslatorType.HY_MT1_5_1_8B_Q4_K_M: TencentTranslatorEngine,
+    TranslatorType.TRANSLATEGEMMA_4B: TranslateGemmaTranslatorEngine,
     # TranslatorType.GEMMA_4_E2B_LLAMACPP_PYTHON: Gemma4E2BLlamaCppPythonTranslator,
 }
 

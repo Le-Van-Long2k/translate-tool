@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import time
 from typing import List
 
@@ -10,13 +11,13 @@ from translator.translator import ITranslator
 logger = logging.getLogger("TRANSLATOR")
 
 
-class TencentTranslatorEngine(ITranslator):
+class TranslateGemmaTranslatorEngine(ITranslator):
     def __init__(
         self,
-        model: str = "/models/HY-MT1.5-1.8B-Q4_K_M.gguf",
+        model: str = "/models/translategemma-4b-it-q4_k_m.gguf",
         url: str = "http://llama-server:8080/v1/chat/completions",
         timeout: float = 60.0,
-        max_concurrency: int = 10,
+        max_concurrency: int = 4,
     ):
         self.model = model
         self.url = url
@@ -53,6 +54,7 @@ class TencentTranslatorEngine(ITranslator):
         context: str = "",
     ):
 
+        text = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", text)
         if not text or not text.strip():
             return idx, ""
 
@@ -64,14 +66,12 @@ class TencentTranslatorEngine(ITranslator):
         # -----------------------------
 
         system_prompt = (
-            f"You are a professional translator.\n"
             f"Translate from {from_lang} to {to_lang}.\n"
-            f"Only output the translated text.\n"
-            f"Do not explain.\n"
-            f"Do not add notes.\n"
-            f"Do not repeat the input.\n"
-            f"If the text is not actually written in {from_lang}, do not translate it.\n"
-            f"Keep the original text unchanged in that case."
+            f"Output only the translation.\n"
+            f"No explanation.\n"
+            f"No extra text.\n"
+            f"If source is not {from_lang}, return unchanged.\n"
+            f"Fix obvious OCR errors before translating."
         )
 
         if context:
@@ -94,8 +94,15 @@ class TencentTranslatorEngine(ITranslator):
                 },
             ],
             "temperature": 0.0,
-            "repeat_penalty": 1.1,
             "max_tokens": 128,
+            "stop": [
+                "<|im_end|>",
+                "<|file_separator|>",
+                "<end_of_turn>",
+                "</s>",
+            ],
+            "top_k": 20,
+            "repeat_penalty": 1.15,
         }
 
         # -----------------------------
@@ -113,6 +120,14 @@ class TencentTranslatorEngine(ITranslator):
             data = response.json()
 
             content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+
+            content = (
+                content.replace("<|im_end|>", "")
+                .replace("<|file_separator|>", "")
+                .replace("<end_of_turn>", "")
+                .replace("</s>", "")
+                .strip()
+            )
 
             logger.info(f"[{idx}] Original: {text}")
             logger.info(f"[{idx}] Translate: {content}")
@@ -180,7 +195,7 @@ class TencentTranslatorEngine(ITranslator):
 
         end = time.perf_counter()
 
-        logger.info(f"Tencent async batch time: {end - start:.3f}s")
+        logger.info(f"TranslateGemma async batch time: {end - start:.3f}s")
 
         return outputs
 

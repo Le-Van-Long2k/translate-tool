@@ -1,5 +1,5 @@
 {
-    "name": "Gradio Backend Dev",
+    "name": "Backend Dev",
     "dockerComposeFile": [
         "../docker-compose.yml"
     ],
@@ -13,17 +13,19 @@
                 "charliermarsh.ruff"
             ],
             "settings": {
-                // Chỉ định đường dẫn interpreter là venv mà uv đã tạo
                 "python.defaultInterpreterPath": "/app/.venv/bin/python",
-                "python.terminal.activateEnvironment": true
+                "python.terminal.activateEnvironment": true,
+                "editor.formatOnSave": true,
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff"
+                },
+                "editor.codeActionsOnSave": {
+                    "source.fixAll.ruff": "always",
+                    "source.organizeImports.ruff": "always"
+                },
+                "ruff.nativeServer": "on"
             }
         }
     },
-    // Giữ container chạy ngầm
-    "overrideCommand": false,
-    // Cấp quyền cho GPU bên trong VS Code Dev Container
-    "runArgs": [
-        "--gpus",
-        "all"
-    ]
+    "overrideCommand": false
 }

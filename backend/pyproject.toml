@@ -46,5 +46,29 @@ torch = { index = "torch-cu126" }
 torchvision = { index = "torch-cu126" }
 paddlepaddle-gpu = { index = "paddle-cu126" }
 
+
 [tool.ruff]
-format.preview = true
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+
+# Rule groups:
+# E (style), F (bugs), I (imports), B (bug risks),
+# SIM (simplify), C4 (comprehensions),
+# TID (import structure), ERA (dead code), RUF (ruff-specific)
+# N (naming rules)
+select = ["E", "F", "I", "B", "SIM", "C4", "TID", "ERA", "RUF", "N"]
+
+# Safe auto-fixes only
+fixable = ["E", "F", "I", "UP", "SIM", "C4"]
+
+# Do not auto-fix risky logic rules
+unfixable = ["B"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint.isort]
+combine-as-imports = true

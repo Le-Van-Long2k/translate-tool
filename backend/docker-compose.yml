@@ -8,13 +8,13 @@ services:
       - ./translator/models:/models
     gpus: all
     command: >
-      --model /models/HY-MT1.5-1.8B-Q4_K_M.gguf  --host 0.0.0.0  --port 8080  --n-gpu-layers 99  --ctx-size 1024
+      --model /models/translategemma-4b-it-q4_k_m.gguf  --host 0.0.0.0  --port 8080  --n-gpu-layers 99  --ctx-size 1024
 
   translator_backend:
     build: .
     volumes:
       - .:/app
-      - /app/.venv
+      # - ./.venv:/app/.venv
     ports:
       - "7860:7860"
       - "8052:8052"
@@ -27,4 +27,4 @@ services:
     shm_size: '8gb'
     stdin_open: true
     tty: true
-    command: ["/bin/bash"]
+    command: [ "/bin/bash" ]

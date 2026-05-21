@@ -48,7 +48,7 @@ class PaddleOCREngine(OCREngine):
                 font_sizes.append(int(height))
         
         avg_font_size = np.mean(font_sizes) if font_sizes else 0
-        return int(avg_font_size*0.7)
+        return int(avg_font_size)
 
     def ocr(self, images: Union[np.ndarray, List[np.ndarray]]):
         if isinstance(images, np.ndarray):
