@@ -1,66 +1,288 @@
-///////////////
-<!-- popup.html -->
 <!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Capture Tool</title>
+
+    <title>Capture Translator</title>
 
     <style>
       body {
+        width: 320px;
+        padding: 12px;
         font-family: Arial, sans-serif;
-        width: 220px;
-        padding: 10px;
+        background: #111827;
+        color: white;
+        box-sizing: border-box;
       }
 
-      h3 {
-        margin: 0 0 10px;
+      h2 {
+        margin: 0 0 12px;
+        font-size: 20px;
+      }
+
+      .section {
+        background: #1f2937;
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 12px;
+      }
+
+      .label {
+        font-size: 12px;
+        color: #9ca3af;
+        margin-bottom: 6px;
+      }
+
+      select,
+      button,
+      input[type='number'] {
+        width: 100%;
+        padding: 8px;
+        border-radius: 8px;
+        border: none;
+        margin-top: 8px;
+        box-sizing: border-box;
+      }
+
+      select,
+      input[type='number'] {
+        background: #374151;
+        color: white;
       }
 
       button {
-        width: 100%;
-        padding: 8px;
-        margin-top: 8px;
-        cursor: pointer;
-        border: none;
-        border-radius: 6px;
-        background: #4caf50;
+        background: #2563eb;
         color: white;
-        font-size: 14px;
+        cursor: pointer;
       }
 
       button:hover {
-        background: #45a049;
+        background: #1d4ed8;
       }
 
       .danger {
-        background: #f44336;
+        background: #dc2626;
       }
 
       .danger:hover {
-        background: #d32f2f;
+        background: #b91c1c;
       }
 
-      .info {
-        background: #2196f3;
+      .hidden {
+        display: none !important;
       }
 
-      .info:hover {
-        background: #0b7dda;
+      .checkbox {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        white-space: nowrap;
+      }
+
+      .hotkey {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        background: #111827;
+        text-align: center;
+        font-size: 14px;
+        color: #10b981;
+      }
+
+      .mode-settings {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #374151;
+      }
+
+      .capture-options {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+
+      .button-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .action-row {
+        display: flex;
+        gap: 8px;
+      }
+
+      .action-row button {
+        flex: 1;
       }
     </style>
   </head>
 
   <body>
-    <h3>Capture Tool</h3>
+    <h2>Capture Translator</h2>
 
-    <!-- Button to set capture region -->
-    <button id="setRegion">📐 Set capture area</button>
-    
-    <!-- Button to view results -->
-    <button id="viewResults" class="info">👁 View results</button>
+    <!-- GLOBAL SETTINGS -->
+    <div class="section">
+      <div style="display: flex; gap: 10px">
+        <!-- SOURCE -->
+        <div style="flex: 1">
+          <div class="label">SOURCE</div>
 
-    <!-- Load external JS (required in Manifest V3) -->
+          <select id="sourceLang">
+            <option value="Japanese">Japanese</option>
+
+            <option value="English">English</option>
+
+            <option value="Korean">Korean</option>
+
+            <option value="Chinese">Chinese</option>
+          </select>
+        </div>
+
+        <!-- TARGET -->
+        <div style="flex: 1">
+          <div class="label">TARGET</div>
+
+          <select id="targetLang">
+            <option value="Vietnamese">Vietnamese</option>
+          </select>
+        </div>
+      </div>
+
+      <button id="submitSettingBtn">Save Settings</button>
+    </div>
+
+    <!-- MODE -->
+    <div class="section">
+      <div class="label">MODE</div>
+
+      <select id="mode">
+        <option value="manga_auto">Manga Auto</option>
+
+        <option value="manga_manual">Manga Manual</option>
+
+        <option value="screenshot">Screenshot Once</option>
+
+        <option value="stream">Screen Stream</option>
+      </select>
+    </div>
+
+    <!-- MODE SETTINGS -->
+    <div class="section">
+      <div class="label">MODE SETTINGS</div>
+
+      <!-- Manga Auto -->
+      <div id="mangaAutoSettings" class="mode-settings">
+        <button class="setRegionBtn">Set Region</button>
+
+        <div class="capture-options">
+          <label class="checkbox">
+            <input type="radio" name="mangaAutoCaptureMode" checked />
+
+            Screen Changes
+          </label>
+
+          <label class="checkbox">
+            <input type="radio" name="mangaAutoCaptureMode" />
+
+            Interval(s)
+          </label>
+
+          <input
+            type="number"
+            min="0.4"
+            max="4.0"
+            step="0.2"
+            value="1.0"
+            placeholder="Seconds"
+            style="width: 50px; margin: 0"
+          />
+        </div>
+      </div>
+
+      <!-- Manga Manual -->
+      <div id="mangaManualSettings" class="mode-settings hidden">
+        <button class="setRegionBtn">Set Region</button>
+
+        <div class="hotkey">Translate Hotkey: ALT + Q</div>
+      </div>
+
+      <!-- Screenshot -->
+      <div id="screenshotSettings" class="mode-settings hidden">
+        <div class="hotkey">Translate Hotkey: ALT + Q</div>
+      </div>
+
+      <!-- Stream -->
+      <div id="streamSettings" class="mode-settings hidden">
+        <div style="display: flex; gap: 10px">
+          <button id="selectScreenBtn" style="flex: 1">🖥 Select Screen</button>
+
+          <button class="setRegionBtn" style="flex: 1">Set Region</button>
+        </div>
+
+        <div class="capture-options">
+          <label class="checkbox">
+            <input type="radio" name="streamCaptureMode" checked />
+
+            Screen Changes
+          </label>
+
+          <label class="checkbox">
+            <input type="radio" name="streamCaptureMode" />
+
+            Interval(s)
+          </label>
+
+          <input
+            type="number"
+            min="0.4"
+            max="4.0"
+            step="0.2"
+            value="1.0"
+            placeholder="Seconds"
+            style="width: 50px; margin: 0"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+
+    <!-- Manga Auto -->
+    <div id="mangaAutoActions" class="button-actions">
+      <div class="action-row">
+        <button class="startBtn">▶ Start</button>
+
+        <button class="stopBtn danger">■ Stop</button>
+      </div>
+
+      <button class="viewResultsBtn">👁 View Results</button>
+    </div>
+
+    <!-- Manga Manual -->
+    <div id="mangaManualActions" class="button-actions hidden">
+      <button class="viewResultsBtn">👁 View Results</button>
+    </div>
+
+    <!-- Screenshot -->
+    <div id="screenshotActions" class="button-actions hidden">
+      <button class="viewResultsBtn">👁 View Results</button>
+    </div>
+
+    <!-- Stream -->
+    <div id="streamActions" class="button-actions hidden">
+      <div class="action-row">
+        <button class="startBtn">▶ Start</button>
+
+        <button class="stopBtn danger">■ Stop</button>
+      </div>
+
+      <button class="viewResultsBtn">👁 View Results</button>
+    </div>
+
     <script src="popup.js"></script>
   </body>
 </html>

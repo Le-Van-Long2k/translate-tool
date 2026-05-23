@@ -1,0 +1,14 @@
+curl -X POST http://localhost:9080/ocr/raw --data-binary @6.jpg -H "Content-Type: image/jpg"
+
+
+    <h3>OCR and Translate Tool</h3>
+
+
+    <!-- Button to set capture region -->
+    <button id="setRegion">📐 Set capture area</button>
+    
+    <!-- Button to view results -->
+    <button id="viewResults" class="info">👁 View results</button>
+
+    <!-- Load external JS (required in Manifest V3) -->
+    <script src="popup.js"></script>

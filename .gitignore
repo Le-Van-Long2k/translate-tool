@@ -3,7 +3,6 @@
 # =========================
 .DS_Store
 Thumbs.db
-.vscode/
 .idea/
 
 # =========================
@@ -45,6 +44,7 @@ backend/translated_output/
 backend/translator/translate_models/**
 backend/translator/models/**
 backend/logs/**
+backend/turboocr-cache/**
 # =========================
 # Node (frontend)
 # =========================

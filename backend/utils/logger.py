@@ -5,7 +5,7 @@ from datetime import datetime
 
 def setup_logger():
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.ERROR)
 
     if not logger.handlers:
         os.makedirs("logs", exist_ok=True)
@@ -13,9 +13,7 @@ def setup_logger():
 
         handler = logging.FileHandler(filename, encoding="utf-8")
 
-        formatter = logging.Formatter(
-            "%(asctime)s | %(levelname)-8s | %(name)-15s | %(message)s"
-        )
+        formatter = logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)-15s | %(message)s")
 
         handler.setFormatter(formatter)
         logger.addHandler(handler)

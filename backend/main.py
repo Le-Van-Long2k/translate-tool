@@ -108,7 +108,7 @@ class ConfigModel(BaseModel):
 CONFIG = ConfigModel()
 
 CONFIG.detect_model = BubbleDetectorType.YOLOV8_TENSORRT
-CONFIG.ocr_model = OCREngineType.PP_OCR_V5_MOBILE
+CONFIG.ocr_model = OCREngineType.TURBO_OCR
 CONFIG.inpaint_model = InpainterType.OPENCV
 CONFIG.translate_model = TranslatorType.TRANSLATEGEMMA_4B
 CONFIG.source_lang = SourceLang.en
@@ -373,17 +373,24 @@ async def translate_comic(
             raise HTTPException(status_code=400, detail="Invalid image file")
 
         # detect
+        t = time.perf_counter()
         with torch.inference_mode():
             boxes = DETECTOR.detect(image, conf_threshold)
+        t_detect = time.perf_counter() - t
+        logger.debug(f"Detection took {t_detect:.2f}s, found {len(boxes)} boxes")
 
         # crop bubbles
         bubbles = [image[int(y1) : int(y2), int(x1) : int(x2)] for (x1, y1, x2, y2) in boxes]
 
         # OCR
+        t = time.perf_counter()
         ocr_results = OCR.ocr(bubbles)
+        t_ocr = time.perf_counter() - t
+        logger.debug(f"OCR took {t_ocr:.2f}s")
         original_texts = [item.get("text", "").strip() for item in ocr_results]
 
         # CHẠY SONG SONG Translate và Inpaint
+        t = time.perf_counter()
         translate_task = TRANSLATOR.translate_batch(
             original_texts, from_lang=CONFIG.source_lang, to_lang=CONFIG.target_lang
         )
@@ -393,9 +400,12 @@ async def translate_comic(
 
         # Chờ cả 2 hoàn thành
         translated_texts, cleaned = await asyncio.gather(translate_task, inpaint_task)
+        t_translate_inpaint = time.perf_counter() - t
+        logger.debug(f"Translate + Inpaint took {t_translate_inpaint:.2f}s")
 
         # render
         final_img = cleaned.copy()
+        t = time.perf_counter()
         CONFIG.font_size_ratio = font_size_ratio
         for box, text, ocr_result in zip(boxes, translated_texts, ocr_results, strict=True):
             if text:
@@ -405,6 +415,8 @@ async def translate_comic(
                     box,
                     font_size=int(CONFIG.font_size_ratio * ocr_result["font_size"]),
                 )
+        t_render = time.perf_counter() - t
+        logger.debug(f"Rendering took {t_render:.2f}s")
 
         total = time.perf_counter() - start_time
 

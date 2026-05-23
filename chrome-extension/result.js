@@ -24,25 +24,6 @@ function loadImage() {
     });
 }
 
-function copyImageUrl() {
-    if (currentImageUrl) {
-        navigator.clipboard.writeText(currentImageUrl);
-        alert('Đã sao chép URL!');
-    } else {
-        alert('Chưa có ảnh nào');
-    }
-}
-
-function downloadImage() {
-    if (currentImageUrl) {
-        const link = document.createElement('a');
-        link.href = currentImageUrl;
-        link.download = 'translated_comic.jpg';
-        link.click();
-    } else {
-        alert('Chưa có ảnh nào');
-    }
-}
 
 // Load image on page load
 document.addEventListener('DOMContentLoaded', () => {

@@ -1,4 +1,3 @@
-////////////////
 // background.js
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === "start-capture") {

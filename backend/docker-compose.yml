@@ -2,13 +2,14 @@ services:
   llama-server:
     # check images at https://github.com/ggml-org/llama.cpp/blob/master/docs/docker.md
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llama-server
     ports:
       - "8121:8080"
     volumes:
       - ./translator/models:/models
     gpus: all
     command: >
-      --model /models/translategemma-4b-it-q4_k_m.gguf  --host 0.0.0.0  --port 8080  --n-gpu-layers 99  --ctx-size 1024
+      --model /models/translategemma-4b-it-q8_0.gguf  --host 0.0.0.0  --port 8080  --n-gpu-layers 99  --ctx-size 1024
 
   translator_backend:
     build: .
@@ -28,3 +29,42 @@ services:
     stdin_open: true
     tty: true
     command: [ "/bin/bash" ]
+
+  turboocr:
+    image: ghcr.io/aiptimizer/turboocr:v2.3.0
+    container_name: turboocr
+
+    runtime: nvidia
+    gpus: all
+
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+    ports:
+      - "9080:8000"
+      - "9081:50051"
+
+    restart: unless-stopped
+    volumes:
+      - ./turboocr-cache:/home/ocr/.cache/turbo-ocr
+
+  turbo-ocr-chinese:
+    image: ghcr.io/aiptimizer/turboocr:v2.3.0
+    container_name: turbo-ocr-chinese
+
+    runtime: nvidia
+    gpus: all
+
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - OCR_LANG=chinese
+
+    ports:
+      - "9080:8000"
+      - "9081:50051"
+
+    restart: unless-stopped
+    volumes:
+      - ./turbo-ocr-chinese:/home/ocr/.cache/turbo-ocr

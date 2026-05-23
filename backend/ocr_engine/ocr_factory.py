@@ -1,8 +1,10 @@
 from enum import Enum
-from typing import Union
 from functools import partial
+from typing import Union
+
 from ocr_engine.ocr_engine import OCREngine
 from ocr_engine.paddle_ocr_engine import PaddleOCREngine
+from ocr_engine.turbo_ocr_engine import TurboOCREngine
 
 
 class OCREngineType(str, Enum):
@@ -12,27 +14,21 @@ class OCREngineType(str, Enum):
     PP_OCR_V4_MOBILE = "pp_ocr_v4_mobile"
     EN_PP_OCR_V5_MOBILE_REC = "en_PP-OCRv5_mobile"
     KOREAN_PP_OCR_V5_MOBILE_REC = "korean_PP-OCRv5_mobile"
+    TURBO_OCR = "turbo_ocr "
 
 
 MODEL_REGISTRY = {
-    OCREngineType.PP_OCR_V5_SERVER: partial(
-        PaddleOCREngine, model_name="PP-OCRv5_server"
-    ),
-    OCREngineType.PP_OCR_V5_MOBILE: partial(
-        PaddleOCREngine, model_name="PP-OCRv5_mobile"
-    ),
-    OCREngineType.PP_OCR_V4_SERVER: partial(
-        PaddleOCREngine, model_name="PP-OCRv4_server"
-    ),
-    OCREngineType.PP_OCR_V4_MOBILE: partial(
-        PaddleOCREngine, model_name="PP-OCRv4_mobile"
-    ),
+    OCREngineType.PP_OCR_V5_SERVER: partial(PaddleOCREngine, model_name="PP-OCRv5_server"),
+    OCREngineType.PP_OCR_V5_MOBILE: partial(PaddleOCREngine, model_name="PP-OCRv5_mobile"),
+    OCREngineType.PP_OCR_V4_SERVER: partial(PaddleOCREngine, model_name="PP-OCRv4_server"),
+    OCREngineType.PP_OCR_V4_MOBILE: partial(PaddleOCREngine, model_name="PP-OCRv4_mobile"),
     OCREngineType.EN_PP_OCR_V5_MOBILE_REC: partial(
         PaddleOCREngine, model_name="en_PP-OCRv5_mobile"
     ),
     OCREngineType.KOREAN_PP_OCR_V5_MOBILE_REC: partial(
         PaddleOCREngine, model_name="korean_PP-OCRv5_mobile"
     ),
+    OCREngineType.TURBO_OCR: partial(TurboOCREngine, model_name="turbo_ocr"),
 }
 
 

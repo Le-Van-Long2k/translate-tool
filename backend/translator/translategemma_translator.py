@@ -11,10 +11,10 @@ from translator.translator import ITranslator
 logger = logging.getLogger("TRANSLATOR")
 
 
-class TranslateGemmaTranslatorEngine(ITranslator):
+class TranslateGemmaTranslator(ITranslator):
     def __init__(
         self,
-        model: str = "/models/translategemma-4b-it-q4_k_m.gguf",
+        model: str = "/models/translategemma-4b-it-q8_0.gguf",
         url: str = "http://llama-server:8080/v1/chat/completions",
         timeout: float = 60.0,
         max_concurrency: int = 4,
@@ -126,6 +126,7 @@ class TranslateGemmaTranslatorEngine(ITranslator):
                 .replace("<|file_separator|>", "")
                 .replace("<end_of_turn>", "")
                 .replace("</s>", "")
+                .replace("<|im_start|>", "")
                 .strip()
             )
 
