@@ -75,15 +75,14 @@ MODEL_LOCK = threading.Lock()
 
 
 class SourceLang(str, Enum):
-    en = "en"
-    zh = "zh"
-    ja = "ja"
-    vi = "vi"
-    ko = "ko"
+    en = "English"
+    zh = "Chinese"
+    ja = "Japanese"
+    ko = "Korean"
 
 
 class TargetLang(str, Enum):
-    vi = "vi"
+    vi = "Vietnamese"
 
 
 # =========================

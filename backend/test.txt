@@ -12,3 +12,6 @@ curl -X POST http://localhost:9080/ocr/raw --data-binary @6.jpg -H "Content-Type
 
     <!-- Load external JS (required in Manifest V3) -->
     <script src="popup.js"></script>
+
+
+pkill -9 -f /opt/coccoc/browser/browser

@@ -6,6 +6,71 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('[Popup] Popup loaded');
 
   // =========================
+  // TOAST NOTIFICATION
+  // =========================
+
+  function showToast(message, isError = false) {
+    console.log('[Toast]', message);
+
+    // Create alert-style modal
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: ${isError ? '#dc2626' : '#10b981'};
+      color: white;
+      padding: 20px 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      z-index: 9999;
+      font-size: 16px;
+      text-align: center;
+      min-width: 250px;
+      animation: zoomIn 0.3s ease-out;
+    `;
+    modal.textContent = message;
+
+    document.body.appendChild(modal);
+
+    // Auto close after 3 seconds
+    setTimeout(() => {
+      modal.style.animation = 'zoomOut 0.3s ease-in';
+      setTimeout(() => {
+        modal.remove();
+      }, 300);
+    }, 3000);
+  }
+
+  // Add animations to style
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes zoomIn {
+      from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+      }
+      to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+    }
+    
+    @keyframes zoomOut {
+      from {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      to {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+
+  // =========================
   // MODE
   // =========================
 
@@ -78,16 +143,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const target = document.getElementById('targetLang')?.value;
 
-    const mode = modeSelect?.value;
-
     console.log('[Popup] Save settings:', {
       source,
-      target,
-      mode
+      target
     });
 
-    // TODO:
-    // chrome.storage.local.set(...)
+    try {
+      // Save settings to Chrome storage
+      await chrome.storage.local.set({
+        sourceLang: source,
+        targetLang: target
+      });
+
+      // Call API to set config
+      const apiResponse = await fetch('http://localhost:8052/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          source_lang: source,
+          target_lang: target,
+          font_size_ratio: null,
+          detect_model: null,
+          ocr_model: null,
+          inpaint_model: null,
+          translate_model: null
+        })
+      });
+
+      if (!apiResponse.ok) {
+        throw new Error(`API error: ${apiResponse.status}`);
+      }
+
+      console.log('[Popup] Settings saved successfully');
+
+      // Show success message to user
+      showToast('✓ Cài đặt đã được lưu thành công!');
+    } catch (err) {
+      console.error('[Popup] Failed to save settings:', err);
+
+      showToast('✗ Lỗi khi lưu cài đặt. Vui lòng thử lại.', true);
+    }
   });
 
   // =========================
@@ -124,13 +221,13 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       if (!tab || !tab.url) {
-        alert('Không tìm thấy tab hiện tại.');
+        showToast('Không tìm thấy tab hiện tại.', true);
 
         return;
       }
 
       if (/^(chrome|edge|about|view-source):/.test(tab.url)) {
-        alert('Không thể chọn vùng trên trang nội bộ.');
+        showToast('Không thể chọn vùng trên trang nội bộ.', true);
 
         return;
       }
@@ -165,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 chrome.runtime.lastError.message
               );
 
-              alert('Content script chưa sẵn sàng.');
+              showToast('Content script chưa sẵn sàng.', true);
 
               return;
             }
@@ -185,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     chrome.runtime.lastError.message
                   );
 
-                  alert('Không thể bắt đầu chọn vùng.');
+                  showToast('Không thể bắt đầu chọn vùng.', true);
                 } else {
                   console.log('[Popup] Selection started', response);
 
@@ -198,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (err) {
         console.error('[Popup] Injection failed:', err);
 
-        alert('Không thể inject content script.');
+        showToast('Không thể inject content script.', true);
       }
     } catch (err) {
       console.error('[Popup] Region selection error:', err);
@@ -232,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       console.log('[Popup] Stream selected:', stream);
 
-      alert('Đã chọn màn hình stream thành công.');
+      showToast('✓ Đã chọn màn hình stream thành công!');
 
       // TODO:
       // save stream
