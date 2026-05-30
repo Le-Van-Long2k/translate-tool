@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stream</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        width: 100vw;
+        height: 100vh;
+        background: #1a1a1a;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: Arial, sans-serif;
+        color: white;
+      }
+
+      .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        width: 100%;
+        height: 100%;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        padding: 15px 20px;
+        background: rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .header h1 {
+        font-size: 24px;
+        font-weight: 600;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+      }
+
+      button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .stop-btn {
+        background: #dc2626;
+        color: white;
+        padding: 10px 20px;
+        font-weight: 500;
+      }
+
+      .stop-btn:hover {
+        background: #b91c1c;
+        transform: scale(1.05);
+      }
+
+      .stop-btn:active {
+        transform: scale(0.95);
+      }
+
+      .video-container {
+        flex: 1;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        overflow: hidden;
+      }
+
+      video {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background: black;
+        border-radius: 4px;
+      }
+
+      .status {
+        padding: 12px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        min-width: 200px;
+        text-align: center;
+        font-weight: 500;
+        margin-right: 20px;
+      }
+
+      .status.success {
+        background: #10b981;
+        color: white;
+      }
+
+      .status.error {
+        background: #dc2626;
+        color: white;
+      }
+
+      .status.loading {
+        background: #3b82f6;
+        color: white;
+      }
+
+      .set-region-btn {
+        background: #6366f1;
+        color: white;
+        padding: 10px 20px;
+        font-weight: 500;
+      }
+
+      .set-region-btn:hover {
+        background: #4f46e5;
+        transform: scale(1.05);
+      }
+
+      .set-region-btn:active {
+        transform: scale(0.95);
+      }
+
+      .set-region-btn.active {
+        background: #f59e0b;
+        animation: pulse 0.5s ease-in-out;
+      }
+
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+        }
+        70% {
+          box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+        }
+      }
+
+      .footer {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 15px 20px;
+        background: rgba(255, 255, 255, 0.05);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        width: 100%;
+      }
+
+      .capture-options {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 12px 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .checkbox {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        white-space: nowrap;
+        font-size: 14px;
+      }
+
+      .checkbox input[type='radio'] {
+        cursor: pointer;
+        width: auto;
+      }
+
+      input[type='number'] {
+        padding: 6px 10px;
+        border: 1px solid #4b5563;
+        border-radius: 4px;
+        background: #374151;
+        color: white;
+        font-size: 12px;
+        width: 70px;
+      }
+
+      .action-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .start-btn {
+        background: #10b981;
+        color: white;
+        padding: 10px 20px;
+        font-weight: 500;
+        flex: 1;
+        min-width: 100px;
+      }
+
+      .start-btn:hover {
+        background: #059669;
+        transform: scale(1.05);
+      }
+
+      .start-btn:active {
+        transform: scale(0.95);
+      }
+
+      .view-results-btn {
+        background: #8b5cf6;
+        color: white;
+        padding: 10px 20px;
+        font-weight: 500;
+        flex: 1;
+        min-width: 100px;
+      }
+
+      .view-results-btn:hover {
+        background: #7c3aed;
+        transform: scale(1.05);
+      }
+
+      .view-results-btn:active {
+        transform: scale(0.95);
+      }
+
+      .settings-section {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 10px 20px;
+        background: rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        width: 100%;
+      }
+
+      .lang-select {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex: 1;
+        min-width: 250px;
+      }
+
+      .lang-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+      }
+
+      .lang-label {
+        font-size: 11px;
+        color: #9ca3af;
+        font-weight: 500;
+      }
+
+      select {
+        padding: 6px 10px;
+        border: 1px solid #4b5563;
+        border-radius: 4px;
+        background: #374151;
+        color: white;
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      select:hover {
+        background: #4b5563;
+      }
+
+      .save-settings-btn {
+        background: #2563eb;
+        color: white;
+        padding: 10px 16px;
+        font-weight: 500;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .save-settings-btn:hover {
+        background: #1d4ed8;
+      }
+
+      .save-settings-btn:active {
+        transform: scale(0.95);
+      }
+
+      .toast {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #10b981;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 13px;
+        z-index: 10000;
+        animation: slideDown 0.3s ease-out;
+      }
+
+      .toast.error {
+        background: #dc2626;
+      }
+
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          transform: translateX(-50%) translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Toast Notification -->
+    <div id="toast" class="hidden"></div>
+
+    <div class="container">
+      <div class="header">
+        <h1>📹 Stream</h1>
+        <div class="controls">
+          <div class="status loading" id="statusMsg">Khởi động...</div>
+          <button class="set-region-btn" id="setRegionBtn">Chọn Vùng</button>
+          <button class="stop-btn" id="stopStreamBtn">Dừng Stream</button>
+        </div>
+      </div>
+      <!-- Language Settings Section -->
+      <div class="settings-section">
+        <div class="lang-select">
+          <div class="lang-group">
+            <label class="lang-label">SOURCE</label>
+            <select id="sourceLang">
+              <option value="English">English</option>
+              <option value="Chinese">Chinese</option>
+              <option value="Japanese">Japanese</option>
+              <option value="Korean">Korean</option>
+            </select>
+          </div>
+          <div class="lang-group">
+            <label class="lang-label">TARGET</label>
+            <select id="targetLang">
+              <option value="Vietnamese">Vietnamese</option>
+            </select>
+          </div>
+        </div>
+        <button class="save-settings-btn" id="submitSettingBtn">
+          Save Settings
+        </button>
+      </div>
+      <div class="video-container">
+        <video id="videoStream" autoplay playsinline muted></video>
+      </div>
+      <div class="footer">
+        <div class="capture-options">
+          <label class="checkbox">
+            <input
+              type="radio"
+              name="streamCaptureMode"
+              id="screenChangesMode"
+              checked
+            />
+            Screen Changes
+          </label>
+
+          <label class="checkbox">
+            <input type="radio" name="streamCaptureMode" id="intervalMode" />
+            Interval(s)
+          </label>
+
+          <input
+            type="number"
+            id="intervalInput"
+            min="0.4"
+            max="4.0"
+            step="0.2"
+            value="1.0"
+            placeholder="Seconds"
+          />
+        </div>
+        <div class="action-buttons">
+          <button class="start-btn" id="startBtn">▶ Dịch</button>
+          <button class="view-results-btn" id="viewResultsBtn">
+            👁 View Results
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="stream.js"></script>
+  </body>
+</html>

@@ -1,44 +1,70 @@
 // background.js
+let streamData = null;
+
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command === "start-capture") {
+  if (command === 'start-capture') {
     const [tab] = await chrome.tabs.query({
       active: true,
-      currentWindow: true,
+      currentWindow: true
     });
 
-    chrome.tabs.sendMessage(tab.id, { type: "CAPTURE_SAVED" });
+    chrome.tabs.sendMessage(tab.id, { type: 'CAPTURE_SAVED' });
   }
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === "capture") {
-    chrome.tabs.captureVisibleTab(null, { format: "png" }, (dataUrl) => {
+  if (msg.type === 'capture') {
+    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
       sendResponse({ dataUrl });
     });
     return true;
   }
 
-  if (msg.type === "TRANSLATE_COMIC") {
-    console.log("[Background] TRANSLATE_COMIC received");
+  if (msg.type === 'STREAM_SELECTED') {
+    console.log('[Background] Stream selected:', msg.streamData);
+    streamData = msg.streamData;
+    sendResponse({ success: true, message: 'Stream stored' });
+    return true;
+  }
+
+  if (msg.type === 'REQUEST_STREAM') {
+    console.log('[Background] Stream requested');
+    if (streamData) {
+      sendResponse({ success: true, streamData: streamData });
+    } else {
+      sendResponse({ success: false, error: 'No stream available' });
+    }
+    return true;
+  }
+
+  if (msg.type === 'STOP_STREAM') {
+    console.log('[Background] Stop stream requested');
+    streamData = null;
+    sendResponse({ success: true, message: 'Stream stopped' });
+    return true;
+  }
+
+  if (msg.type === 'REGION_SELECTED') {
+    console.log('[Background] Region selected:', msg.region);
+    sendResponse({ success: true, message: 'Region received' });
+    return true;
+  }
+
+  if (msg.type === 'TRANSLATE_COMIC') {
+    console.log('[Background] TRANSLATE_COMIC received');
     (async () => {
       try {
         const uint8Array = new Uint8Array(msg.imageData);
-        const blob = new Blob([uint8Array], { type: "image/jpeg" });
+        const blob = new Blob([uint8Array], { type: 'image/jpeg' });
         const formData = new FormData();
-        formData.append("file", blob, "capture.jpg");
-        formData.append(
-          "font_size_ratio",
-          String(msg.font_size_ratio ?? 1.0)
-        );
+        formData.append('file', blob, 'capture.jpg');
+        formData.append('font_size_ratio', String(msg.font_size_ratio ?? 1.0));
 
-        formData.append(
-          "conf_threshold",
-          String(msg.conf_threshold ?? 0.25)
-        );
+        formData.append('conf_threshold', String(msg.conf_threshold ?? 0.25));
 
-        console.log("[Background] Sending request to backend...");
-        const response = await fetch("http://localhost:8052/translate_comic", {
-          method: "POST",
+        console.log('[Background] Sending request to backend...');
+        const response = await fetch('http://localhost:8052/translate_comic', {
+          method: 'POST',
           body: formData
         });
 
@@ -48,21 +74,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         const translatedBlob = await response.blob();
         const reader = new FileReader();
-        
+
         reader.onload = () => {
-          console.log("[Background] FileReader onload, sending response with imageUrl length:", reader.result.length);
+          console.log(
+            '[Background] FileReader onload, sending response with imageUrl length:',
+            reader.result.length
+          );
           sendResponse({ imageUrl: reader.result });
         };
-        
+
         reader.onerror = () => {
-          console.error("[Background] FileReader onerror");
-          sendResponse({ error: "Failed to read blob" });
+          console.error('[Background] FileReader onerror');
+          sendResponse({ error: 'Failed to read blob' });
         };
-        
-        console.log("[Background] Starting FileReader.readAsDataURL...");
+
+        console.log('[Background] Starting FileReader.readAsDataURL...');
         reader.readAsDataURL(translatedBlob);
       } catch (err) {
-        console.error("[Background] Fetch error:", err);
+        console.error('[Background] Fetch error:', err);
         sendResponse({ error: err.message });
       }
     })();

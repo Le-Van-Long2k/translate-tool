@@ -222,83 +222,78 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!tab || !tab.url) {
         showToast('Không tìm thấy tab hiện tại.', true);
-
         return;
       }
 
-      if (/^(chrome|edge|about|view-source):/.test(tab.url)) {
+      // Check if the page allows content scripts
+      if (
+        /^(chrome|edge|about|view-source|file|moz-extension|chrome-extension):/.test(
+          tab.url
+        )
+      ) {
         showToast('Không thể chọn vùng trên trang nội bộ.', true);
-
         return;
       }
 
       console.log('[Popup] Active tab:', tab.id, tab.url);
 
-      // inject content.js
+      // Try to inject content.js with better error handling
       try {
         await chrome.scripting.executeScript({
           target: {
-            tabId: tab.id
+            tabId: tab.id,
+            allFrames: false
           },
           files: ['content.js']
         });
 
-        console.log('[Popup] content.js injected');
+        console.log('[Popup] content.js injected successfully');
+      } catch (injectErr) {
+        console.error('[Popup] Failed to inject content.js:', injectErr);
+        showToast(
+          'Không thể inject script vào trang này. Vui lòng thử trang khác.',
+          true
+        );
+        return;
+      }
 
-        // IMPORTANT:
-        // wait content.js initialize
-        await new Promise((resolve) => setTimeout(resolve, 300));
+      // Wait for content.js to initialize
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
-        // ping content script first
+      // Send PING message to verify content script is ready
+      chrome.tabs.sendMessage(tab.id, { type: 'PING' }, (pingResponse) => {
+        if (chrome.runtime.lastError) {
+          console.error(
+            '[Popup] Content script not ready:',
+            chrome.runtime.lastError.message
+          );
+          showToast('Content script chưa sẵn sàng.', true);
+          return;
+        }
+
+        console.log('[Popup] Ping success:', pingResponse);
+
+        // Send START_SELECTION message
         chrome.tabs.sendMessage(
           tab.id,
-          {
-            type: 'PING'
-          },
-          (pingResponse) => {
+          { type: 'START_SELECTION' },
+          (response) => {
             if (chrome.runtime.lastError) {
               console.error(
-                '[Popup] Content script not ready:',
+                '[Popup] START_SELECTION failed:',
                 chrome.runtime.lastError.message
               );
-
-              showToast('Content script chưa sẵn sàng.', true);
-
-              return;
+              showToast('Không thể bắt đầu chọn vùng.', true);
+            } else {
+              console.log('[Popup] Selection started', response);
+              window.close();
             }
-
-            console.log('[Popup] Ping success:', pingResponse);
-
-            // START_SELECTION
-            chrome.tabs.sendMessage(
-              tab.id,
-              {
-                type: 'START_SELECTION'
-              },
-              (response) => {
-                if (chrome.runtime.lastError) {
-                  console.error(
-                    '[Popup] START_SELECTION failed:',
-                    chrome.runtime.lastError.message
-                  );
-
-                  showToast('Không thể bắt đầu chọn vùng.', true);
-                } else {
-                  console.log('[Popup] Selection started', response);
-
-                  window.close();
-                }
-              }
-            );
           }
         );
-      } catch (err) {
-        console.error('[Popup] Injection failed:', err);
-
-        showToast('Không thể inject content script.', true);
-      }
+      });
     } catch (err) {
       console.error('[Popup] Region selection error:', err);
+      showToast('Lỗi: ' + err.message, true);
     }
   }
 
@@ -322,20 +317,22 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[Popup] Select stream screen');
 
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: false
-      });
+      // Open stream display page
+      const streamUrl = chrome.runtime.getURL('stream.html');
 
-      console.log('[Popup] Stream selected:', stream);
-
-      showToast('✓ Đã chọn màn hình stream thành công!');
-
-      // TODO:
-      // save stream
-      // send to background
+      chrome.tabs.create(
+        {
+          url: streamUrl
+        },
+        (newTab) => {
+          console.log('[Popup] Stream tab created:', newTab.id);
+          showToast('✓ Đã mở tab stream thành công! Chọn màn hình để stream.');
+          window.close();
+        }
+      );
     } catch (err) {
       console.error('[Popup] Stream select failed:', err);
+      showToast('✗ Lỗi: Không thể mở tab stream.', true);
     }
   });
 

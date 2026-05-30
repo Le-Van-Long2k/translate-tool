@@ -17,8 +17,10 @@
 
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": false
     }
   ],
 
@@ -33,7 +35,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["result.html", "result.js"],
+      "resources": ["result.html", "result.js", "stream.html", "stream.js"],
       "matches": ["<all_urls>"]
     }
   ]

@@ -248,35 +248,7 @@
 
       <!-- Stream -->
       <div id="streamSettings" class="mode-settings hidden">
-        <div style="display: flex; gap: 10px">
-          <button id="selectScreenBtn" style="flex: 1">🖥 Select Screen</button>
-
-          <button class="setRegionBtn" style="flex: 1">Set Region</button>
-        </div>
-
-        <div class="capture-options">
-          <label class="checkbox">
-            <input type="radio" name="streamCaptureMode" checked />
-
-            Screen Changes
-          </label>
-
-          <label class="checkbox">
-            <input type="radio" name="streamCaptureMode" />
-
-            Interval(s)
-          </label>
-
-          <input
-            type="number"
-            min="0.4"
-            max="4.0"
-            step="0.2"
-            value="1.0"
-            placeholder="Seconds"
-            style="width: 50px; margin: 0"
-          />
-        </div>
+        <button id="selectScreenBtn">🖥 Open Stream</button>
       </div>
     </div>
 
@@ -303,16 +275,8 @@
       <button class="viewResultsBtn">👁 View Results</button>
     </div>
 
-    <!-- Stream -->
-    <div id="streamActions" class="button-actions hidden">
-      <div class="action-row">
-        <button class="startBtn">▶ Start</button>
-
-        <button class="stopBtn danger">■ Stop</button>
-      </div>
-
-      <button class="viewResultsBtn">👁 View Results</button>
-    </div>
+    <!-- Stream (hidden in popup - all controls are in stream.html) -->
+    <div id="streamActions" class="button-actions hidden"></div>
 
     <script src="popup.js"></script>
   </body>
