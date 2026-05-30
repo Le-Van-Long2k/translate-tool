@@ -1,4 +1,4 @@
-curl -X POST http://localhost:9080/ocr/raw --data-binary @6.jpg -H "Content-Type: image/jpg"
+curl -X POST http://localhost:9180/ocr/raw --data-binary @6.jpg -H "Content-Type: image/jpg"
 
 
     <h3>OCR and Translate Tool</h3>

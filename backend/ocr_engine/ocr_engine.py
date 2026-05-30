@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Union
+
 import numpy as np
 
 
@@ -10,4 +11,8 @@ class OCREngine(ABC):
 
     @abstractmethod
     def close(self):
+        pass
+
+    @abstractmethod
+    def set_language(self, lang: str):
         pass

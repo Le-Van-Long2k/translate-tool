@@ -5,7 +5,7 @@ from datetime import datetime
 
 def setup_logger():
     logger = logging.getLogger()
-    logger.setLevel(logging.ERROR)
+    logger.setLevel(logging.INFO)
 
     if not logger.handlers:
         os.makedirs("logs", exist_ok=True)

@@ -4,8 +4,9 @@ import logging
 import threading
 import time
 from contextlib import asynccontextmanager
-from enum import Enum
+from io import BytesIO
 from typing import Annotated, Optional
+from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
 
 import cv2
 import numpy as np
@@ -32,12 +33,12 @@ from translator.translator_factory import (
     TranslatorFactory,
     TranslatorType,
 )
+from utils.languages import SourceLang, TargetLang
 from utils.logger import setup_logger
 
 # =========================
 # LOGGER
 # =========================
-
 setup_logger()
 logger = logging.getLogger("API")
 
@@ -56,40 +57,20 @@ async def lifespan(app: FastAPI):
 # =========================
 # APP
 # =========================
-
 app = FastAPI(title="Comic Translator API", lifespan=lifespan)
 
 
 # =========================
 # GLOBAL LOCK
-# Reject request nếu đang xử lý
+# Only allow 1 request at a time to prevent OOM and model conflicts
 # =========================
-
 PROCESS_LOCK = asyncio.Lock()
 MODEL_LOCK = threading.Lock()
 
 
 # =========================
-# ENUMS
-# =========================
-
-
-class SourceLang(str, Enum):
-    en = "English"
-    zh = "Chinese"
-    ja = "Japanese"
-    ko = "Korean"
-
-
-class TargetLang(str, Enum):
-    vi = "Vietnamese"
-
-
-# =========================
 # CONFIG MODEL
 # =========================
-
-
 class ConfigModel(BaseModel):
     font_size_ratio: Optional[float] = None
     detect_model: Optional[BubbleDetectorType] = None
@@ -103,14 +84,13 @@ class ConfigModel(BaseModel):
 # =========================
 # DEFAULT CONFIG
 # =========================
-
 CONFIG = ConfigModel()
 
 CONFIG.detect_model = BubbleDetectorType.YOLOV8_TENSORRT
 CONFIG.ocr_model = OCREngineType.TURBO_OCR
 CONFIG.inpaint_model = InpainterType.OPENCV
-CONFIG.translate_model = TranslatorType.TRANSLATEGEMMA_4B
-CONFIG.source_lang = SourceLang.en
+CONFIG.translate_model = TranslatorType.GoogleTranslator
+CONFIG.source_lang = SourceLang.zh
 CONFIG.target_lang = TargetLang.vi
 CONFIG.font_size_ratio = 1.0
 
@@ -128,8 +108,6 @@ RENDERER = PILCenteredTextRenderer()
 # =========================
 # MEMORY CLEANUP
 # =========================
-
-
 def clear_memory():
 
     gc.collect()
@@ -170,6 +148,7 @@ def load_models():
         DETECTOR = BubbleDetectorFactory.create(CONFIG.detect_model)
 
         OCR = OCREngineFactory.create(CONFIG.ocr_model)
+        OCR.set_language(CONFIG.source_lang)
 
         TRANSLATOR = TranslatorFactory.create(CONFIG.translate_model)
 
@@ -224,11 +203,6 @@ def reload_models():
         logger.info("Reload complete")
 
 
-# =========================
-# CLEAN MEMORY
-# =========================
-
-
 @app.post("/cleanup")
 async def cleanup():
 
@@ -241,11 +215,6 @@ async def cleanup():
         return JSONResponse({"status": "ok", "message": "Memory cleaned"})
 
 
-# =========================
-# UNLOAD MODELS
-# =========================
-
-
 @app.post("/unload_models")
 async def unload_models_api():
 
@@ -256,11 +225,6 @@ async def unload_models_api():
         unload_models()
 
         return JSONResponse({"status": "ok", "message": "Models unloaded"})
-
-
-# =========================
-# RELOAD MODELS
-# =========================
 
 
 @app.post("/reload_models")
@@ -280,8 +244,6 @@ async def reload_models_api():
 # =========================
 # CONFIG API
 # =========================
-
-
 @app.post("/config")
 async def set_config(cfg: ConfigModel):
 
@@ -318,7 +280,6 @@ async def set_config(cfg: ConfigModel):
             CONFIG.translate_model = cfg.translate_model
             changed = True
 
-        # reload nếu đổi model
         if changed:
             reload_models()
 
@@ -328,8 +289,6 @@ async def set_config(cfg: ConfigModel):
 # =========================
 # IMAGE READER
 # =========================
-
-
 def _read_image_from_upload(data: bytes):
     arr = np.frombuffer(data, np.uint8)
 
@@ -339,10 +298,8 @@ def _read_image_from_upload(data: bytes):
 
 
 # =========================
-# TRANSLATE COMIC
+# TRANSLATE COMIC ONE IMAGE
 # =========================
-
-
 @app.post("/translate_comic")
 async def translate_comic(
     file: Annotated[UploadFile, File()],
@@ -376,7 +333,7 @@ async def translate_comic(
         with torch.inference_mode():
             boxes = DETECTOR.detect(image, conf_threshold)
         t_detect = time.perf_counter() - t
-        logger.debug(f"Detection took {t_detect:.2f}s, found {len(boxes)} boxes")
+        logger.info(f"Detection took {t_detect:.2f}s, found {len(boxes)} boxes")
 
         # crop bubbles
         bubbles = [image[int(y1) : int(y2), int(x1) : int(x2)] for (x1, y1, x2, y2) in boxes]
@@ -385,10 +342,10 @@ async def translate_comic(
         t = time.perf_counter()
         ocr_results = OCR.ocr(bubbles)
         t_ocr = time.perf_counter() - t
-        logger.debug(f"OCR took {t_ocr:.2f}s")
+        logger.info(f"OCR took {t_ocr:.2f}s")
         original_texts = [item.get("text", "").strip() for item in ocr_results]
 
-        # CHẠY SONG SONG Translate và Inpaint
+        # Parallel Translate and Inpaint task
         t = time.perf_counter()
         translate_task = TRANSLATOR.translate_batch(
             original_texts, from_lang=CONFIG.source_lang, to_lang=CONFIG.target_lang
@@ -397,10 +354,10 @@ async def translate_comic(
             INPAINTER.inpaint_from_boxes, image=image, crop_boxes=boxes, ocr_results=ocr_results
         )
 
-        # Chờ cả 2 hoàn thành
+        # wait for both tasks to complete
         translated_texts, cleaned = await asyncio.gather(translate_task, inpaint_task)
         t_translate_inpaint = time.perf_counter() - t
-        logger.debug(f"Translate + Inpaint took {t_translate_inpaint:.2f}s")
+        logger.info(f"Translate + Inpaint took {t_translate_inpaint:.2f}s")
 
         # render
         final_img = cleaned.copy()
@@ -415,7 +372,7 @@ async def translate_comic(
                     font_size=int(CONFIG.font_size_ratio * ocr_result["font_size"]),
                 )
         t_render = time.perf_counter() - t
-        logger.debug(f"Rendering took {t_render:.2f}s")
+        logger.info(f"Rendering took {t_render:.2f}s")
 
         total = time.perf_counter() - start_time
 
@@ -430,6 +387,143 @@ async def translate_comic(
             content=buf.tobytes(),
             media_type="image/png",
             headers={"Content-Disposition": "attachment; filename=translated.png"},
+        )
+
+
+async def process_one_image(
+    image: np.ndarray,
+    font_size_ratio: float,
+    conf_threshold: float,
+) -> np.ndarray:
+
+    with torch.inference_mode():
+        boxes = DETECTOR.detect(image, conf_threshold)
+
+    bubbles = [image[int(y1) : int(y2), int(x1) : int(x2)] for (x1, y1, x2, y2) in boxes]
+
+    ocr_results = OCR.ocr(bubbles)
+
+    original_texts = [item.get("text", "").strip() for item in ocr_results]
+
+    translated_texts, cleaned = await asyncio.gather(
+        TRANSLATOR.translate_batch(
+            original_texts,
+            from_lang=CONFIG.source_lang,
+            to_lang=CONFIG.target_lang,
+        ),
+        asyncio.to_thread(
+            INPAINTER.inpaint_from_boxes,
+            image=image,
+            crop_boxes=boxes,
+            ocr_results=ocr_results,
+        ),
+    )
+
+    final_img = cleaned.copy()
+
+    for box, text, ocr_result in zip(boxes, translated_texts, ocr_results, strict=True):
+        if text:
+            final_img = RENDERER.draw_text_in_box(
+                final_img,
+                str(text).capitalize(),
+                box,
+                font_size=int(font_size_ratio * ocr_result["font_size"]),
+            )
+
+    return final_img
+
+
+# =========================
+# TRANSLATE COMIC ZIP
+# =========================
+@app.post("/translate_comic_zip")
+async def translate_comic_zip(
+    file: Annotated[UploadFile, File()],
+    font_size_ratio: float = Form(CONFIG.font_size_ratio),
+    conf_threshold: float = Form(0.25),
+):
+    ensure_models_loaded()
+
+    if PROCESS_LOCK.locked():
+        raise HTTPException(
+            status_code=429,
+            detail="Server is busy",
+        )
+
+    if not file.filename.lower().endswith(".zip"):
+        raise HTTPException(
+            status_code=400,
+            detail="Please upload a ZIP file",
+        )
+
+    async with PROCESS_LOCK:
+        zip_bytes = await file.read()
+
+        try:
+            input_zip = ZipFile(BytesIO(zip_bytes), "r")
+        except BadZipFile:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid ZIP file",
+            ) from None
+
+        output_buffer = BytesIO()
+
+        with ZipFile(
+            output_buffer,
+            "w",
+            compression=ZIP_DEFLATED,
+        ) as output_zip:
+            for name in sorted(input_zip.namelist()):
+                # bỏ thư mục
+                if name.endswith("/"):
+                    continue
+
+                if not name.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+                    continue
+
+                try:
+                    image_bytes = input_zip.read(name)
+
+                    image = _read_image_from_upload(image_bytes)
+
+                    if image is None:
+                        logger.warning(f"Skip invalid image: {name}")
+                        continue
+
+                    result = await process_one_image(
+                        image=image,
+                        font_size_ratio=font_size_ratio,
+                        conf_threshold=conf_threshold,
+                    )
+
+                    ext = name.rsplit(".", 1)[-1].lower()
+
+                    if ext == "jpg":
+                        ext = "jpeg"
+
+                    success, buf = cv2.imencode(
+                        f".{ext}",
+                        result,
+                    )
+
+                    if not success:
+                        continue
+
+                    output_zip.writestr(
+                        name,
+                        buf.tobytes(),
+                    )
+
+                except Exception:
+                    logger.exception(f"Failed processing {name}")
+
+        output_buffer.seek(0)
+
+        return Response(
+            content=output_buffer.getvalue(),
+            media_type="application/zip",
+            headers={"Content-Disposition": "attachment; filename=translated.zip"},
         )
 
 
@@ -483,8 +577,6 @@ async def translate_one_box_chat(
 # =========================
 # HEALTH
 # =========================
-
-
 @app.get("/health")
 async def health():
 

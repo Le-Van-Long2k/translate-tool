@@ -14,11 +14,11 @@ run_fastapi:
 	uv run uvicorn main:app --host 0.0.0.0 --port 8052
 
 log:
-	docker logs -f backend-translator_backend-1
+	docker logs -f backend-translator-backend-1
 
 rebuild_fastapi:
-	docker compose stop translator_backend
-	docker compose up -d --build translator_backend
+	docker compose stop translator-backend
+	docker compose up -d --build translator-backend
 
 check_size_docker:
 	docker system df
@@ -30,3 +30,6 @@ remove_all_docker:
 	docker network prune -f
 	docker builder prune -a -f
 	docker system prune -a --volumes -f
+
+docker_status:
+	docker stats

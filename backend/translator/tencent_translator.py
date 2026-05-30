@@ -125,9 +125,9 @@ class TencentTranslator(ITranslator):
                 .strip()
             )
 
-            logger.info(f"[{idx}] Original: {text}")
-            logger.info(f"[{idx}] Translate: {content}")
-            logger.info(f"[{idx}] Translate success")
+            logger.debug(f"[{idx}] Original: {text}")
+            logger.debug(f"[{idx}] Translate: {content}")
+            logger.debug(f"[{idx}] Translate success")
 
             return idx, content
 

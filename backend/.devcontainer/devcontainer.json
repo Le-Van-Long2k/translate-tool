@@ -3,7 +3,7 @@
     "dockerComposeFile": [
         "../docker-compose.yml"
     ],
-    "service": "translator_backend",
+    "service": "translator-backend",
     "workspaceFolder": "/app",
     "customizations": {
         "vscode": {

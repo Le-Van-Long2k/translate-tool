@@ -1,11 +1,11 @@
 import logging
-import os
-import numpy as np
 import time
-
-from paddleocr import PaddleOCR
-from ocr_engine.ocr_engine import OCREngine
 from typing import List, Union
+
+import numpy as np
+from paddleocr import PaddleOCR
+
+from ocr_engine.ocr_engine import OCREngine
 
 logger = logging.getLogger("OCR_ENGINE")
 
@@ -27,6 +27,9 @@ class PaddleOCREngine(OCREngine):
             f"PaddleOCR initialized: {text_detection_model_name} and {text_recognition_model_name}"
         )
 
+    def set_language(self, lang: str):
+        pass
+
     def _calculate_font_size(self, boxes):
         """
         Calculate font size from bounding boxes.
@@ -35,18 +38,18 @@ class PaddleOCREngine(OCREngine):
         """
         if not boxes:
             return [], 0
-        
+
         font_sizes = []
         for box in boxes:
             # box is a polygon (typically 4 points for horizontal text)
             box_array = np.array(box)
-            
+
             # Calculate height: difference between max and min y-coordinates
             if len(box_array) > 0:
                 y_coords = box_array[:, 1]
                 height = np.max(y_coords) - np.min(y_coords)
                 font_sizes.append(int(height))
-        
+
         avg_font_size = np.mean(font_sizes) if font_sizes else 0
         return int(avg_font_size)
 
@@ -71,18 +74,18 @@ class PaddleOCREngine(OCREngine):
             text_str = " ".join(texts_all)
             font_size = self._calculate_font_size(boxes_all)
             logger.debug(f"font_size: {font_size} for text: {text_str}")
-            
-            outputs.append({
-                "text": text_str,
-                "boxes": boxes_all,
-                "font_size": font_size,
-            })
+
+            outputs.append(
+                {
+                    "text": text_str,
+                    "boxes": boxes_all,
+                    "font_size": font_size,
+                }
+            )
 
         end_time = time.perf_counter()
-        
-        logger.debug(
-            f"[PaddleOCR] Batch {len(images)} images in {end_time - start_time:.3f}s"
-        )
+
+        logger.debug(f"[PaddleOCR] Batch {len(images)} images in {end_time - start_time:.3f}s")
 
         return outputs
 
@@ -91,9 +94,7 @@ class PaddleOCREngine(OCREngine):
         logger.info("Closing PaddleOCR...")
 
         try:
-
             if self.model is not None:
-
                 # release internals
                 if hasattr(self.model, "text_detector"):
                     self.model.text_detector = None

@@ -66,13 +66,24 @@ class Gemma4E2BTranslator(ITranslator):
         # -----------------------------
 
         system_prompt = (
+            f"The assistant must behave strictly as a machine translator, not a chatbot.\n"
             f"Translate from {from_lang} to {to_lang}.\n"
             f"Output only the translation.\n"
             f"No explanation.\n"
             f"No extra text.\n"
+            f"Never answer questions.\n"
+            f"Never continue the conversation.\n"
+            f"Never infer missing context.\n"
+            f"Translate literally whenever possible.\n"
+            f"Preserve all numbers exactly.\n"
+            f"Preserve names exactly unless translation is obvious.\n"
+            f"Preserve sentence tone exactly.\n"
+            f"Fix only obvious OCR spacing or broken characters.\n"
             f"If source is not {from_lang}, return unchanged.\n"
-            f"Fix obvious OCR errors before translating."
+            f"Chinese OCR text may contain incorrect spaces between characters.\n"
+            f"Merge separated Chinese characters before translating.\n"
         )
+
 
         if context:
             system_prompt += f"\n\nContext:\n{context}"
@@ -80,6 +91,8 @@ class Gemma4E2BTranslator(ITranslator):
         # -----------------------------
         # PAYLOAD
         # -----------------------------
+        text = re.sub(r'(?<=[\u4e00-\u9fff])\s+(?=[\u4e00-\u9fff])','',text,)
+
 
         payload = {
             "model": self.model,
@@ -94,15 +107,8 @@ class Gemma4E2BTranslator(ITranslator):
                 },
             ],
             "temperature": 0.0,
-            "max_tokens": 128,
-            "stop": [
-                "<|im_end|>",
-                "<|file_separator|>",
-                "<end_of_turn>",
-                "</s>",
-            ],
-            "top_k": 20,
-            "repeat_penalty": 1.15,
+            "max_tokens": 256,
+            "repeat_penalty": 1.05,
         }
 
         # -----------------------------
@@ -121,18 +127,9 @@ class Gemma4E2BTranslator(ITranslator):
 
             content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
 
-            content = (
-                content.replace("<|im_end|>", "")
-                .replace("<|file_separator|>", "")
-                .replace("<end_of_turn>", "")
-                .replace("</s>", "")
-                .replace("<|im_start|>", "")
-                .strip()
-            )
-
-            logger.info(f"[{idx}] Original: {text}")
-            logger.info(f"[{idx}] Translate: {content}")
-            logger.info(f"[{idx}] Translate success")
+            logger.debug(f"[{idx}] Original: {text}")
+            logger.debug(f"[{idx}] Translate: {content}")
+            logger.debug(f"[{idx}] Translate success")
 
             return idx, content
 
