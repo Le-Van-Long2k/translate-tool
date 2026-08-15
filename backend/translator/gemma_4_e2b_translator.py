@@ -14,7 +14,7 @@ logger = logging.getLogger("TRANSLATOR")
 class Gemma4E2BTranslator(ITranslator):
     def __init__(
         self,
-        model: str = "/models/gemma-4-E2B.Q4_K_M.gguf",
+        model: str = "/models/gemma-4-E2B.Q8_0.gguf",
         url: str = "http://llama-server:8080/v1/chat/completions",
         timeout: float = 60.0,
         max_concurrency: int = 4,
@@ -66,22 +66,15 @@ class Gemma4E2BTranslator(ITranslator):
         # -----------------------------
 
         system_prompt = (
-            f"The assistant must behave strictly as a machine translator, not a chatbot.\n"
-            f"Translate from {from_lang} to {to_lang}.\n"
-            f"Output only the translation.\n"
-            f"No explanation.\n"
-            f"No extra text.\n"
-            f"Never answer questions.\n"
-            f"Never continue the conversation.\n"
-            f"Never infer missing context.\n"
-            f"Translate literally whenever possible.\n"
-            f"Preserve all numbers exactly.\n"
-            f"Preserve names exactly unless translation is obvious.\n"
-            f"Preserve sentence tone exactly.\n"
-            f"Fix only obvious OCR spacing or broken characters.\n"
-            f"If source is not {from_lang}, return unchanged.\n"
-            f"Chinese OCR text may contain incorrect spaces between characters.\n"
-            f"Merge separated Chinese characters before translating.\n"
+            f"Bạn là một biên dịch viên chuyên nghiệp.\n"
+            f"Dịch từ {from_lang} sang {to_lang}.\n"
+            f"Sử dụng văn phong hội thoại tự nhiên trong {to_lang}.\n"
+            f"Nếu văn bản đầu vào có lỗi chính tả, ký tự bị nhận dạng sai, thiếu chữ hoặc câu bị dính chữ, hãy tự động khôi phục và sửa lại nội dung dựa trên ngữ cảnh trước khi dịch.\n"
+            f"Chỉ xuất ra nội dung đã dịch.\n"
+            f"Không giải thích.\n"
+            f"Không thêm ghi chú.\n"
+            f"Không lặp lại nội dung đầu vào.\n"
+            f"Nếu không thể dịch hoặc không chắc chắn, trả lại nguyên văn nội dung đầu vào."
         )
 
 

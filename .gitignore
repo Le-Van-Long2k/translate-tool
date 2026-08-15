@@ -45,6 +45,7 @@ backend/translator/translate_models/**
 backend/translator/models/**
 backend/logs/**
 backend/turboocr-cache/**
+backend/*.deb
 # =========================
 # Node (frontend)
 # =========================
@@ -57,6 +58,10 @@ frontend/build/
 frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
+
+#ui
+ui/venv
+ui/__pycache__
 
 # =========================
 # Env files (IMPORTANT)

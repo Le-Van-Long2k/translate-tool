@@ -13,10 +13,10 @@ logger = logging.getLogger("TRANSLATOR")
 class TencentTranslator(ITranslator):
     def __init__(
         self,
-        model: str = "/models/HY-MT1.5-1.8B-Q8_0.gguf",
+        model: str = "/models/Hy-MT2-1.8B-Q8_0.gguf",
         url: str = "http://llama-server:8080/v1/chat/completions",
         timeout: float = 60.0,
-        max_concurrency: int = 10,
+        max_concurrency: int = 3,
     ):
         self.model = model
         self.url = url
@@ -31,7 +31,7 @@ class TencentTranslator(ITranslator):
 
         mapping = {
             "en": "English",
-            "vi": "Vietnamese",
+            "vi": "Tiếng Việt",
             "ja": "Japanese",
             "zh": "Chinese",
             "ko": "Korean",
@@ -64,16 +64,15 @@ class TencentTranslator(ITranslator):
         # -----------------------------
 
         system_prompt = (
-            f"You are a professional translator.\n"
-            f"Translate from {from_lang} to {to_lang}.\n"
-            f"Use natural {to_lang} conversational style.\n"
-            f"Only output the translated text.\n"
-            f"Do not explain.\n"
-            f"Do not add notes.\n"
-            f"Do not repeat the input.\n"
-            f"If the text is not actually written in {from_lang}, do not translate it.\n"
-            f"Keep symbols, punctuation, emojis, and sound effects unchanged.\n"
-            f"If translation is not possible or uncertain, return the original text unchanged."
+            f"Bạn là một biên dịch viên chuyên nghiệp.\n"
+            f"Tự động nhận biết ngôn ngữ của văn bản đầu vào.\n"
+            f"Dịch sang {to_lang}.\n"
+            f"Sử dụng văn phong tự nhiên, phù hợp với hội thoại trong manga/comic.\n"
+            f"Nếu văn bản đầu vào có lỗi chính tả, ký tự bị nhận dạng sai, thiếu chữ hoặc câu bị dính chữ, hãy tự động khôi phục và sửa lại nội dung dựa trên ngữ cảnh trước khi dịch.\n"
+            f"Chỉ xuất ra nội dung đã dịch.\n"
+            f"Không giải thích.\n"
+            f"Không thêm ghi chú.\n"
+            f"Không lặp lại nội dung đầu vào.\n"
         )
 
         if context:
@@ -97,7 +96,7 @@ class TencentTranslator(ITranslator):
             ],
             "temperature": 0.0,
             "repeat_penalty": 1.1,
-            "max_tokens": 128,
+            "max_tokens": 256,
         }
 
         # -----------------------------
@@ -156,8 +155,8 @@ class TencentTranslator(ITranslator):
         semaphore = asyncio.Semaphore(self.max_concurrency)
 
         limits = httpx.Limits(
-            max_connections=100,
-            max_keepalive_connections=20,
+            max_connections=self.max_concurrency,
+            max_keepalive_connections=self.max_concurrency,
         )
 
         async with httpx.AsyncClient(

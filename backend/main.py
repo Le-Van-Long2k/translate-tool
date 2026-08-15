@@ -86,11 +86,11 @@ class ConfigModel(BaseModel):
 # =========================
 CONFIG = ConfigModel()
 
-CONFIG.detect_model = BubbleDetectorType.YOLOV8_TENSORRT
+CONFIG.detect_model = BubbleDetectorType.RTDETR_COMIC_DETECTOR
 CONFIG.ocr_model = OCREngineType.TURBO_OCR
 CONFIG.inpaint_model = InpainterType.OPENCV
-CONFIG.translate_model = TranslatorType.GoogleTranslator
-CONFIG.source_lang = SourceLang.zh
+CONFIG.translate_model = TranslatorType.TENCENT_HY_MT
+CONFIG.source_lang = SourceLang.auto
 CONFIG.target_lang = TargetLang.vi
 CONFIG.font_size_ratio = 1.0
 
@@ -295,6 +295,290 @@ def _read_image_from_upload(data: bytes):
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
 
     return img
+
+
+# =========================
+# DETECT BUBBLES ONLY
+# =========================
+@app.post("/detect_bubbles")
+async def detect_bubbles(
+    file: Annotated[UploadFile, File()],
+    conf_threshold: float = Form(0.25),
+):
+    global DETECTOR
+
+    # Load detector if not loaded yet
+    ensure_models_loaded()
+
+    # Reject if server is busy
+    if PROCESS_LOCK.locked():
+        raise HTTPException(
+            status_code=429,
+            detail="Server is busy",
+        )
+
+    async with PROCESS_LOCK:
+        start_time = time.perf_counter()
+
+        # =========================
+        # Read uploaded image
+        # =========================
+        data = await file.read()
+
+        image = _read_image_from_upload(data)
+
+        if image is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid image file",
+            )
+
+        # =========================
+        # Bubble Detection
+        # =========================
+        t = time.perf_counter()
+
+        with torch.inference_mode():
+            boxes = DETECTOR.detect(
+                image,
+                conf_threshold,
+            )
+
+        t_detect = time.perf_counter() - t
+
+        logger.info(
+            f"Bubble detection took {t_detect:.2f}s, "
+            f"found {len(boxes)} boxes"
+        )
+
+        # =========================
+        # Draw bounding boxes
+        # =========================
+        result_image = image.copy()
+
+        for box in boxes:
+            x1, y1, x2, y2 = map(
+                int,
+                box,
+            )
+
+            # Draw rectangle
+            cv2.rectangle(
+                result_image,
+                (x1, y1),
+                (x2, y2),
+                (0, 255, 0),
+                2,
+            )
+
+        # =========================
+        # Encode result image
+        # =========================
+        success, buf = cv2.imencode(
+            ".png",
+            result_image,
+        )
+
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to encode image",
+            )
+
+        total = time.perf_counter() - start_time
+
+        logger.info(
+            f"Bubble detection completed in {total:.2f}s"
+        )
+
+        return Response(
+            content=buf.tobytes(),
+            media_type="image/png",
+            headers={
+                "Content-Disposition": (
+                    "attachment; "
+                    "filename=detected_bubbles.png"
+                )
+            },
+        )
+
+# =========================
+# DETECT BUBBLES + OCR
+# Result: image with boxes + OCR text
+# =========================
+@app.post("/detect_bubbles_ocr")
+async def detect_bubbles_ocr(
+    file: Annotated[UploadFile, File()],
+    conf_threshold: float = Form(0.25),
+):
+    global DETECTOR
+    global OCR
+
+    ensure_models_loaded()
+
+    if PROCESS_LOCK.locked():
+        raise HTTPException(
+            status_code=429,
+            detail="Server is busy",
+        )
+
+    async with PROCESS_LOCK:
+        start_time = time.perf_counter()
+
+        # =========================
+        # Read image
+        # =========================
+        data = await file.read()
+        image = _read_image_from_upload(data)
+
+        if image is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid image file",
+            )
+
+        # =========================
+        # Detect bubbles
+        # =========================
+        with torch.inference_mode():
+            boxes = DETECTOR.detect(
+                image,
+                conf_threshold,
+            )
+
+        logger.info(
+            f"Bubble detection found {len(boxes)} boxes"
+        )
+
+        # =========================
+        # Crop bubbles
+        # =========================
+        bubbles = []
+
+        for x1, y1, x2, y2 in boxes:
+            x1 = max(0, int(x1))
+            y1 = max(0, int(y1))
+            x2 = min(image.shape[1], int(x2))
+            y2 = min(image.shape[0], int(y2))
+
+            if x2 <= x1 or y2 <= y1:
+                bubbles.append(None)
+                continue
+
+            bubbles.append(
+                image[y1:y2, x1:x2]
+            )
+
+        # =========================
+        # OCR
+        # =========================
+        ocr_results = OCR.ocr(bubbles)
+
+        # =========================
+        # Draw result
+        # =========================
+        result_image = image.copy()
+
+        for box, ocr_result in zip(
+            boxes,
+            ocr_results,
+            strict=False,
+        ):
+            x1, y1, x2, y2 = map(int, box)
+
+            text = ocr_result.get(
+                "text",
+                "",
+            ).strip()
+
+            # Green bounding box
+            cv2.rectangle(
+                result_image,
+                (x1, y1),
+                (x2, y2),
+                (0, 255, 0),
+                2,
+            )
+
+            if text:
+                # OCR text above the bubble
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                font_scale = 0.7
+                thickness = 2
+
+                (tw, th), baseline = cv2.getTextSize(
+                    text,
+                    font,
+                    font_scale,
+                    thickness,
+                )
+
+                text_x = x1
+                text_y = max(
+                    th + baseline + 5,
+                    y1,
+                )
+
+                # Background
+                cv2.rectangle(
+                    result_image,
+                    (
+                        text_x,
+                        text_y - th - baseline - 5,
+                    ),
+                    (
+                        text_x + tw + 8,
+                        text_y + 3,
+                    ),
+                    (0, 0, 0),
+                    -1,
+                )
+
+                # Text
+                cv2.putText(
+                    result_image,
+                    text,
+                    (
+                        text_x + 4,
+                        text_y - 2,
+                    ),
+                    font,
+                    font_scale,
+                    (255, 255, 255),
+                    thickness,
+                    cv2.LINE_AA,
+                )
+
+        # =========================
+        # Encode PNG
+        # =========================
+        success, buf = cv2.imencode(
+            ".png",
+            result_image,
+        )
+
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to encode image",
+            )
+
+        total = time.perf_counter() - start_time
+
+        logger.info(
+            f"Detect + OCR completed in {total:.2f}s"
+        )
+
+        return Response(
+            content=buf.tobytes(),
+            media_type="image/png",
+            headers={
+                "Content-Disposition": (
+                    "attachment; "
+                    "filename=detected_bubbles_ocr.png"
+                )
+            },
+        )
 
 
 # =========================

@@ -12,14 +12,13 @@ from utils.languages import SourceLang
 logger = logging.getLogger("OCR_ENGINE")
 
 TURBOR_OCR_URL_MAP = {
-    SourceLang.en: "http://turbo-ocr-english:8000/ocr/raw",
-    SourceLang.zh: "http://turbo-ocr-chinese:8000/ocr/raw",
+    SourceLang.auto: "http://turbo-ocr:8000/ocr/raw",
 }
 
 
 class TurboOCREngine(OCREngine):
     def __init__(self, model_name: str):
-        self.api_url = "http://turbo-ocr-english:8000/ocr/raw"
+        self.api_url = "http://turbo-ocr:8000/ocr/raw"
 
         logger.info(f"TurboOCR API initialized: {self.api_url} - {model_name}")
 

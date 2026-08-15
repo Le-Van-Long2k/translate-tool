@@ -1,13 +1,14 @@
-# Sử dụng image NVIDIA làm base
-FROM nvcr.io/nvidia/pytorch:24.12-py3
+FROM python:3.12-slim
 
 # Thiết lập thư mục làm việc
 WORKDIR /app
 
 # --- Cài đặt thư viện hệ thống cho OpenCV ---
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    # OpenCV
     libgl1 \
     libglib2.0-0 \
+    # Fonts
     fonts-noto \
     fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
@@ -15,19 +16,23 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 # Cài đặt uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Copy các file cấu hình dependency trước để tận dụng cache của Docker layer
-COPY pyproject.toml uv.lock ./
+# Copy pyproject.toml
+COPY pyproject.toml ./
 
-# Cài đặt môi trường ảo và dependencies vào thư mục .venv
-# --no-install-project: Chỉ cài dependencies, chưa cài source code của chính project
+# Xóa lock cũ và tạo lại uv.lock
+RUN rm -f uv.lock && \
+    uv lock
+
+# Cài dependencies theo lock mới
 RUN uv sync --frozen --no-install-project
 
 # Biến môi trường để đảm bảo Python sử dụng đúng venv đã cài
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 
-# install
-COPY install/ /app/install/
+
+# # install
+# COPY install/ /app/install/
 
 
 # Mở port cho Gradio
