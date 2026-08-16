@@ -217,8 +217,8 @@ class ScreenSelector(QWidget):
             return
 
         cropped = self.screen_image.copy(crop_rect)
-        cropped.save("ocr_input.png")
-        print("Saved: ocr_input.png")
+        # cropped.save("ocr_input.png")
+        # print("Saved: ocr_input.png")
 
         # Đóng selector trước khi emit
         self.mode = "idle"

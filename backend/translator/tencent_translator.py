@@ -16,7 +16,7 @@ class TencentTranslator(ITranslator):
         model: str = "/models/Hy-MT2-1.8B-Q8_0.gguf",
         url: str = "http://llama-server:8080/v1/chat/completions",
         timeout: float = 60.0,
-        max_concurrency: int = 3,
+        max_concurrency: int = 5,
     ):
         self.model = model
         self.url = url
@@ -35,6 +35,7 @@ class TencentTranslator(ITranslator):
             "ja": "Japanese",
             "zh": "Chinese",
             "ko": "Korean",
+            "auto": "Auto",
         }
 
         return mapping.get(lang.lower(), lang)
@@ -64,15 +65,13 @@ class TencentTranslator(ITranslator):
         # -----------------------------
 
         system_prompt = (
-            f"Bạn là một biên dịch viên chuyên nghiệp.\n"
-            f"Tự động nhận biết ngôn ngữ của văn bản đầu vào.\n"
-            f"Dịch sang {to_lang}.\n"
-            f"Sử dụng văn phong tự nhiên, phù hợp với hội thoại trong manga/comic.\n"
-            f"Nếu văn bản đầu vào có lỗi chính tả, ký tự bị nhận dạng sai, thiếu chữ hoặc câu bị dính chữ, hãy tự động khôi phục và sửa lại nội dung dựa trên ngữ cảnh trước khi dịch.\n"
-            f"Chỉ xuất ra nội dung đã dịch.\n"
+            f"Dịch sang Tiếng Việt.\n"
+            f"Tự xác định ý nghĩa và dịch theo ngữ cảnh phù hợp nhất.\n"
+            f"Không tự thêm tên riêng hoặc nội dung.\n"
+            f"Chỉ trả về bản dịch.\n"
+            f"Không dịch được → trả nguyên văn bản gốc.\n"
             f"Không giải thích.\n"
             f"Không thêm ghi chú.\n"
-            f"Không lặp lại nội dung đầu vào.\n"
         )
 
         if context:
@@ -96,7 +95,7 @@ class TencentTranslator(ITranslator):
             ],
             "temperature": 0.0,
             "repeat_penalty": 1.1,
-            "max_tokens": 256,
+            "max_tokens": 128,
         }
 
         # -----------------------------
@@ -115,14 +114,26 @@ class TencentTranslator(ITranslator):
 
             content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
 
-            content = (
-                content.replace("<|im_end|>", "")
-                .replace("<|file_separator|>", "")
-                .replace("<end_of_turn>", "")
-                .replace("</s>", "")
-                .replace("<|im_start|>", "")
-                .strip()
-            )
+            # Kiểm tra model có đang giải thích hay không
+            bad_patterns = [
+                "tôi không thể",
+                "không thể dịch",
+                "không thể hiểu",
+                "không có nghĩa",
+                "không có từ",
+                "nếu bạn muốn",
+                "nếu bạn cần",
+                "có thể hiểu là",
+                "điều này có nghĩa",
+            ]
+
+            lower_content = content.lower()
+
+            if (
+                not content
+                or any(pattern in lower_content for pattern in bad_patterns)
+            ):
+                content = text
 
             logger.debug(f"[{idx}] Original: {text}")
             logger.debug(f"[{idx}] Translate: {content}")
@@ -190,7 +201,7 @@ class TencentTranslator(ITranslator):
 
         end = time.perf_counter()
 
-        logger.info(f"Tencent async batch time: {end - start:.3f}s")
+        logger.debug(f"Tencent async batch time: {end - start:.3f}s")
 
         return outputs
 

@@ -1,78 +1,34 @@
 [project]
 name = "backend"
 version = "0.1.0"
-requires-python = ">=3.10,<3.11"
+requires-python = ">=3.12,<3.13"
 dependencies = [
-    #"gradio>=6.11.0",
     "opencv-python",
-    ######### YOLO / CV #########
-    "ultralytics>=8.3.70",
     "onnx==1.22.0",
     "protobuf==7.35.1",
     "ml-dtypes==0.5.4",
-    ######### PYTORCH (CUDA 12.6) #########
-    #"torch==2.6.0",
-    #"torchvision==0.21.0",
-    ######### NLP / OCR #########
     "transformers>=5.5.0",
-    #"paddleocr>=3.4.0",
-    ######### ONNX #########
-    #"onnx>=1.21.0",
-    ######### IMAGE #########
     "simple-lama-inpainting>=0.1.0",
-    ######### PADDLE GPU (cu126) #########
-    #"paddlepaddle-gpu==3.3.1",
-    ######### NUMPY #########
-    #"numpy<2",
-    ######### TensorRT #########
-    "tensorrt-cu12>=10.16.1.11",
-    "tensorrt-cu12-bindings>=10.16.1.11",
-    "tensorrt-cu12-libs>=10.16.1.11",
     "accelerate>=1.13.0",
     "fastapi>=0.136.1",
     "uvicorn[standard]>=0.47.0",
-    ######### GoogleTranslate #########
     "googletrans>=4.0.2",
-    "pyside6>=6.11.1",
     "dbus-next>=0.2.3",
     "pydantic>=2.13.4",
     "huggingface-hub>=1.24.0",
     "python-multipart>=0.0.32",
+    "requests>=2.34.2",
 ]
-
-#[[tool.uv.index]]
-#name = "torch-cu126"
-#url = "https://download.pytorch.org/whl/cu126"
-#explicit = true
-
-#[[tool.uv.index]]
-#name = "paddle-cu126"
-#url = "https://www.paddlepaddle.org.cn/packages/stable/cu126/"
-#explicit = true
-
-#[tool.uv.sources]
-#torch = { index = "torch-cu126" }
-#torchvision = { index = "torch-cu126" }
-#paddlepaddle-gpu = { index = "paddle-cu126" }
-
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "C4", "TID", "ERA", "RUF", "N"]
 
-# Rule groups:
-# E (style), F (bugs), I (imports), B (bug risks),
-# SIM (simplify), C4 (comprehensions),
-# TID (import structure), ERA (dead code), RUF (ruff-specific)
-# N (naming rules)
-select = ["E", "F", "I", "B", "SIM", "C4", "TID", "ERA", "RUF", "N"]
-
-# Safe auto-fixes only
 fixable = ["E", "F", "I", "UP", "SIM", "C4"]
 
-# Do not auto-fix risky logic rules
 unfixable = ["B"]
 
 [tool.ruff.format]

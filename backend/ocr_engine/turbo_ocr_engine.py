@@ -11,9 +11,6 @@ from utils.languages import SourceLang
 
 logger = logging.getLogger("OCR_ENGINE")
 
-TURBOR_OCR_URL_MAP = {
-    SourceLang.auto: "http://turbo-ocr:8000/ocr/raw",
-}
 
 
 class TurboOCREngine(OCREngine):
@@ -21,13 +18,6 @@ class TurboOCREngine(OCREngine):
         self.api_url = "http://turbo-ocr:8000/ocr/raw"
 
         logger.info(f"TurboOCR API initialized: {self.api_url} - {model_name}")
-
-    def set_language(self, lang: str):
-        lang = SourceLang(lang)
-
-        self.api_url = TURBOR_OCR_URL_MAP.get(lang, self.api_url)
-
-        logger.info(f"TurboOCR API set to: {self.api_url} for language: {lang}")
 
     def _calculate_font_size(self, boxes):
         """

@@ -12,7 +12,3 @@ class OCREngine(ABC):
     @abstractmethod
     def close(self):
         pass
-
-    @abstractmethod
-    def set_language(self, lang: str):
-        pass

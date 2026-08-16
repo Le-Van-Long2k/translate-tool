@@ -25,6 +25,8 @@ from PySide6.QtCore import (
     QTimer,
 )
 
+from PySide6.QtGui import QIcon
+
 
 class TranslateCommicWorker(QThread):
     finished = Signal(QImage)
@@ -83,8 +85,8 @@ class MainWindow(QMainWindow):
         self.worker = None
 
         self.ui.Select_area_btn.clicked.connect(self.open_screen_selector)
-        self.ui.Start_btn.clicked.connect(self.start_capture)
-        self.ui.Stop_btn.clicked.connect(self.stop_capture)
+        self.is_capturing = False
+        self.ui.start_stop_btn.clicked.connect(self.toggle_capture)
 
         self.previous_image = None
         self.capture_timer = QTimer(self)
@@ -92,6 +94,25 @@ class MainWindow(QMainWindow):
         self.capture_timer.timeout.connect(self.check_capture)
 
         self.processing = False
+
+    def toggle_capture(self):
+        if self.is_capturing:
+            self.stop_capture()
+            self.is_capturing = False
+
+            self.ui.start_stop_btn.setIcon(
+                QIcon("icons/start.svg")
+            )
+            self.ui.start_stop_btn.setToolTip("Start Capture")
+
+        else:
+            if self.start_capture():
+                self.is_capturing = True
+
+                self.ui.start_stop_btn.setIcon(
+                    QIcon("icons/stop.svg")
+                )
+                self.ui.start_stop_btn.setToolTip("Stop Capture")
 
     # =========================================================
     # CHỌN VÙNG
@@ -120,11 +141,6 @@ class MainWindow(QMainWindow):
 
         self.show_image(image)
 
-        # Bắt đầu check mỗi 500ms
-        self.capture_timer.start()
-
-        print("Auto capture started")
-
     # =========================================================
     # NÚT START → Capture + Bubble
     # =========================================================
@@ -137,12 +153,12 @@ class MainWindow(QMainWindow):
                 "Lỗi",
                 "Chưa chọn vùng. Hãy bấm Select area trước."
             )
-            return
+            return False
 
         if not self.capture_timer.isActive():
             self.capture_timer.start()
 
-        self.ui.Start_btn.setText("Watching...")
+        return True
 
     def stop_capture(self):
         if self.selector is not None:
@@ -152,7 +168,6 @@ class MainWindow(QMainWindow):
             self.worker.wait(3000)
         if self.capture_timer.isActive():
             self.capture_timer.stop()
-        self.ui.Start_btn.setText("Start")
 
     def check_capture(self):
         if self.selected_rect is None:
@@ -209,7 +224,6 @@ class MainWindow(QMainWindow):
         # print("Image changed → gọi API detect + OCR")
 
         self.processing = True
-        self.ui.Start_btn.setText("Detect + OCR...")
 
         self.worker = TranslateCommicWorker(image)
 
@@ -227,8 +241,6 @@ class MainWindow(QMainWindow):
         self.processing = False
 
         self.show_image(result_image)
-
-        self.ui.Start_btn.setText("Watching...")
 
     def on_bubble_error(self, msg: str):
         print("Lỗi:", msg)

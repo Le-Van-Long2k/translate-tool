@@ -186,7 +186,7 @@ class Gemma4E2BTranslator(ITranslator):
 
         end = time.perf_counter()
 
-        logger.info(f"TranslateGemma async batch time: {end - start:.3f}s")
+        logger.debug(f"TranslateGemma async batch time: {end - start:.3f}s")
 
         return outputs
 

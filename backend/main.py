@@ -77,7 +77,7 @@ class ConfigModel(BaseModel):
     ocr_model: Optional[OCREngineType] = None
     inpaint_model: Optional[InpainterType] = None
     translate_model: Optional[TranslatorType] = None
-    source_lang: Optional[SourceLang] = None
+    source_lang: Optional[SourceLang] = SourceLang.auto
     target_lang: Optional[TargetLang] = None
 
 
@@ -148,7 +148,6 @@ def load_models():
         DETECTOR = BubbleDetectorFactory.create(CONFIG.detect_model)
 
         OCR = OCREngineFactory.create(CONFIG.ocr_model)
-        OCR.set_language(CONFIG.source_lang)
 
         TRANSLATOR = TranslatorFactory.create(CONFIG.translate_model)
 
@@ -193,14 +192,13 @@ def unload_models():
 
 def reload_models():
 
-    with MODEL_LOCK:
-        unload_models()
+    unload_models()
 
-        logger.info("Reloading models...")
+    logger.info("Reloading models...")
 
-        load_models()
+    load_models()
 
-        logger.info("Reload complete")
+    logger.info("Reload complete")
 
 
 @app.post("/cleanup")
@@ -346,7 +344,7 @@ async def detect_bubbles(
 
         t_detect = time.perf_counter() - t
 
-        logger.info(
+        logger.debug(
             f"Bubble detection took {t_detect:.2f}s, "
             f"found {len(boxes)} boxes"
         )
@@ -387,7 +385,7 @@ async def detect_bubbles(
 
         total = time.perf_counter() - start_time
 
-        logger.info(
+        logger.debug(
             f"Bubble detection completed in {total:.2f}s"
         )
 
@@ -446,7 +444,7 @@ async def detect_bubbles_ocr(
                 conf_threshold,
             )
 
-        logger.info(
+        logger.debug(
             f"Bubble detection found {len(boxes)} boxes"
         )
 
@@ -565,7 +563,7 @@ async def detect_bubbles_ocr(
 
         total = time.perf_counter() - start_time
 
-        logger.info(
+        logger.debug(
             f"Detect + OCR completed in {total:.2f}s"
         )
 
@@ -617,7 +615,7 @@ async def translate_comic(
         with torch.inference_mode():
             boxes = DETECTOR.detect(image, conf_threshold)
         t_detect = time.perf_counter() - t
-        logger.info(f"Detection took {t_detect:.2f}s, found {len(boxes)} boxes")
+        logger.debug(f"Detection took {t_detect:.2f}s, found {len(boxes)} boxes")
 
         # crop bubbles
         bubbles = [image[int(y1) : int(y2), int(x1) : int(x2)] for (x1, y1, x2, y2) in boxes]
@@ -626,7 +624,7 @@ async def translate_comic(
         t = time.perf_counter()
         ocr_results = OCR.ocr(bubbles)
         t_ocr = time.perf_counter() - t
-        logger.info(f"OCR took {t_ocr:.2f}s")
+        logger.debug(f"OCR took {t_ocr:.2f}s")
         original_texts = [item.get("text", "").strip() for item in ocr_results]
 
         # Parallel Translate and Inpaint task
@@ -641,7 +639,7 @@ async def translate_comic(
         # wait for both tasks to complete
         translated_texts, cleaned = await asyncio.gather(translate_task, inpaint_task)
         t_translate_inpaint = time.perf_counter() - t
-        logger.info(f"Translate + Inpaint took {t_translate_inpaint:.2f}s")
+        logger.debug(f"Translate + Inpaint took {t_translate_inpaint:.2f}s")
 
         # render
         final_img = cleaned.copy()
@@ -651,16 +649,16 @@ async def translate_comic(
             if text:
                 final_img = RENDERER.draw_text_in_box(
                     final_img,
-                    str(text).capitalize(),
+                    str(text),
                     box,
                     font_size=int(CONFIG.font_size_ratio * ocr_result["font_size"]),
                 )
         t_render = time.perf_counter() - t
-        logger.info(f"Rendering took {t_render:.2f}s")
+        logger.debug(f"Rendering took {t_render:.2f}s")
 
         total = time.perf_counter() - start_time
 
-        logger.info(f"Done in {total:.2f}s")
+        logger.debug(f"Done in {total:.2f}s")
 
         success, buf = cv2.imencode(".png", final_img)
 
@@ -709,7 +707,7 @@ async def process_one_image(
         if text:
             final_img = RENDERER.draw_text_in_box(
                 final_img,
-                str(text).capitalize(),
+                str(text),
                 box,
                 font_size=int(font_size_ratio * ocr_result["font_size"]),
             )

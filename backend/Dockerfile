@@ -35,8 +35,6 @@ ENV PYTHONUNBUFFERED=1
 # COPY install/ /app/install/
 
 
-# Mở port cho Gradio
-EXPOSE 7860 
 EXPOSE 8052
 
 # CMD ["uv", "run", "gradio", "app.py"]
