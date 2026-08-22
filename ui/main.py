@@ -10,6 +10,7 @@ from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
+    QHBoxLayout,
     QLabel,
     QListView,
     QListWidget,
@@ -18,10 +19,14 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSizePolicy,
+    QScrollArea,
+    QGraphicsScene,
+    QGraphicsView,
+    QVBoxLayout,
     QWidget,
 )
 
-from PySide6.QtGui import QPixmap, QImage, QIcon
+from PySide6.QtGui import QPixmap, QImage, QIcon, QPainter
 
 from PySide6.QtCore import (
     QBuffer,
@@ -109,7 +114,14 @@ class PopupWindow(QWidget):
         self._current_image = None
         self._translated_images = []
         self._translated_entries = []
+        self._navigation_images = []
+        self._navigation_index = -1
         self._is_translating = False
+        self._zoom_factor = 1.0
+        self.image_scroll_area = None
+        self.graphics_view = None
+        self.graphics_scene = None
+        self._popup_size = {"screen": (360, 220), "chat": (320, 140), "comic": (1101, 891)}.get(popup_type, (360, 220))
 
         ui_path = os.path.join(os.path.dirname(__file__), ui_file_name)
         loader = QUiLoader()
@@ -121,45 +133,91 @@ class PopupWindow(QWidget):
             ui_file.close()
             if loaded_widget is not None:
                 self._ui = loaded_widget
-                self._ui.setParent(self)
-                self._ui.move(0, 0)
-                self._ui.resize(self.size())
+                self._ui.hide()
+                self._ui.setParent(None)
+                self._ui.deleteLater()
+                self._ui = None
 
         self.setWindowTitle(title)
         self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground, False)
-        self.setMinimumSize(220, 120)
+        self.resize(*self._popup_size)
+        self.setMinimumSize(*self._popup_size)
+        self.setMaximumSize(*self._popup_size)
 
-        root = self._ui if self._ui is not None else self
-        self.title_label = root.findChild(QLabel, "title_label")
-        self.text_label = root.findChild(QLabel, "text_label")
-        self.image_label = root.findChild(QLabel, "image_label")
-        self.select_btn = root.findChild(QPushButton, "select_btn")
-        self.download_btn = root.findChild(QPushButton, "download_btn")
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(12, 12, 12, 12)
+        self.main_layout.setSpacing(8)
 
-        self.preview_list = None
+        self.title_label = QLabel(title)
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setWordWrap(True)
+        self.title_label.setStyleSheet("font-weight: 600; font-size: 14px; color: #F8FAFC;")
+        self.main_layout.addWidget(self.title_label)
+
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setMinimumSize(0, 0)
+        self.image_label.setStyleSheet(
+            "background: rgba(15,23,42,0.8); border: 1px solid rgba(251,191,36,0.9); border-radius: 8px;"
+        )
+        self.image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.image_label.setMouseTracking(True)
+        self.image_label.installEventFilter(self)
+
+        self.text_label = QLabel()
+        self.text_label.setAlignment(Qt.AlignCenter)
+        self.text_label.setWordWrap(True)
+        self.text_label.setStyleSheet("color: #F8FAFC;")
+        self.text_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        self.select_btn = QPushButton("Select image(s)" if self.popup_type == "comic" else "Select area")
+        self.download_btn = QPushButton("Download")
+        self.select_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.download_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.select_btn.setMinimumHeight(36)
+        self.download_btn.setMinimumHeight(36)
+
         if self.popup_type == "comic":
-            if self.image_label is not None:
-                self.image_label.hide()
-            if self.text_label is not None:
-                self.text_label.setText("0 file selected")
+            self.graphics_scene = QGraphicsScene(self)
+            self.graphics_view = QGraphicsView(self)
+            self.graphics_view.setScene(self.graphics_scene)
+            self.graphics_view.setRenderHints(QPainter.Antialiasing | QPainter.SmoothPixmapTransform)
+            self.graphics_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+            self.graphics_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+            self.graphics_view.setFrameShape(self.graphics_view.Shape.NoFrame)
+            self.graphics_view.setBackgroundBrush(Qt.transparent)
+            self.graphics_view.setStyleSheet("QGraphicsView { background: transparent; border: none; }")
+            self.graphics_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.graphics_view.setMinimumHeight(220)
+            self.graphics_view.setDragMode(self.graphics_view.DragMode.ScrollHandDrag)
+            self.graphics_view.setTransformationAnchor(self.graphics_view.ViewportAnchor.AnchorUnderMouse)
+            self.graphics_view.setResizeAnchor(self.graphics_view.ViewportAnchor.AnchorUnderMouse)
+            self.graphics_view.setViewportUpdateMode(self.graphics_view.ViewportUpdateMode.FullViewportUpdate)
+            self.graphics_view.installEventFilter(self)
+            self.main_layout.addWidget(self.graphics_view)
 
-        if self.image_label is not None:
-            self.image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            self.image_label.setMinimumSize(0, 0)
-            self.image_label.setScaledContents(False)
-        if self.text_label is not None:
-            self.text_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            self.text_label.setMinimumSize(0, 0)
-            self.text_label.setWordWrap(True)
-        if self.title_label is not None:
-            self.title_label.setText(title)
+            self.text_label.setText("0 file selected")
+            self.text_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            self.main_layout.addWidget(self.text_label)
 
-        if self.select_btn is not None:
-            self.select_btn.clicked.connect(self.open_file_dialog)
+            self.select_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            self.select_btn.setMinimumHeight(36)
+            self.main_layout.addWidget(self.select_btn)
 
-        if self.download_btn is not None:
-            self.download_btn.clicked.connect(self.download_selected_images)
+            self.download_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            self.download_btn.setMinimumHeight(36)
+            self.main_layout.addWidget(self.download_btn)
+        elif self.popup_type == "chat":
+            self.text_label.setStyleSheet(
+                "font-size: 20px; font-weight: 600; color: white; background: #0F172A; border: 1px solid rgba(148,163,184,0.7); border-radius: 12px; padding: 12px;"
+            )
+            self.main_layout.addWidget(self.text_label)
+        else:
+            self.main_layout.addWidget(self.image_label)
+
+        self.select_btn.clicked.connect(self.open_file_dialog)
+        self.download_btn.clicked.connect(self.download_selected_images)
 
         self._apply_mode_style()
 
@@ -216,28 +274,127 @@ class PopupWindow(QWidget):
                 "background: #1E293B; color: #F8FAFC; border: 1px solid rgba(148, 163, 184, 0.8); border-radius: 8px; padding: 6px 12px;"
             )
 
+    def _sync_navigation_buttons(self):
+        if self.popup_type != "comic":
+            return
+
+        total = len(self._navigation_images)
+        if self.text_label is not None:
+            if total > 0 and self._navigation_index >= 0:
+                self.text_label.setText(f"Ảnh {self._navigation_index + 1}/{total}")
+            elif total > 0:
+                self.text_label.setText(f"{total} file(s) translated")
+            else:
+                self.text_label.setText("0 file(s) translated")
+
     def set_preview_images(self, images):
         self._translated_images = list(images or [])
-        if self.text_label is not None:
+        self._navigation_images = self._translated_images
+        self._navigation_index = 0 if self._navigation_images else -1
+        self._sync_navigation_buttons()
+        if self._navigation_images and self.popup_type == "comic":
+            self.set_image(self._navigation_images[self._navigation_index])
+        elif self.text_label is not None:
             self.text_label.setText(f"{len(self._translated_images)} file(s) translated")
         self.set_download_state(False)
 
-    def set_image(self, image: QImage):
-        if image is None or image.isNull() or self.image_label is None:
+    def go_to_previous_image(self):
+        if self.popup_type != "comic" or not self._navigation_images:
+            return
+        if self._navigation_index <= 0:
+            return
+        self._navigation_index -= 1
+        self.set_image(self._navigation_images[self._navigation_index])
+        self._sync_navigation_buttons()
+
+    def go_to_next_image(self):
+        if self.popup_type != "comic" or not self._navigation_images:
+            return
+        if self._navigation_index >= len(self._navigation_images) - 1:
+            return
+        self._navigation_index += 1
+        self.set_image(self._navigation_images[self._navigation_index])
+        self._sync_navigation_buttons()
+
+    def eventFilter(self, obj, event):
+        if event.type() == event.Type.KeyPress and self.popup_type == "comic":
+            if event.key() == Qt.Key_Left:
+                self.go_to_previous_image()
+                return True
+            if event.key() == Qt.Key_Right:
+                self.go_to_next_image()
+                return True
+
+        if event.type() == event.Type.Wheel and obj is self.graphics_view:
+            if not event.modifiers() & Qt.ControlModifier:
+                return False
+
+            delta = event.angleDelta().y()
+            if delta == 0:
+                return False
+
+            factor = 1.1 if delta > 0 else 1.0 / 1.1
+            self._zoom_factor = max(0.25, min(5.0, self._zoom_factor * factor))
+
+            pos = event.position()
+            self.graphics_view.setTransformationAnchor(self.graphics_view.ViewportAnchor.AnchorUnderMouse)
+            self.graphics_view.scale(factor, factor)
+            self.graphics_view.centerOn(self.graphics_view.mapToScene(int(pos.x()), int(pos.y())))
+            return True
+
+        return super().eventFilter(obj, event)
+
+    def _refresh_image_view(self):
+        if self._current_image is None:
             return
 
-        self._current_image = image.copy()
-        label_size = self.image_label.size()
-        if label_size.width() <= 1 or label_size.height() <= 1:
+        if self.popup_type == "comic":
+            if self.graphics_view is None or self.graphics_scene is None:
+                return
+
+            pixmap = QPixmap.fromImage(self._current_image)
+            self.graphics_scene.clear()
+            item = self.graphics_scene.addPixmap(pixmap)
+            item.setPos(0, 0)
+            self.graphics_scene.setSceneRect(self.graphics_scene.itemsBoundingRect())
+            self.graphics_view.setSceneRect(self.graphics_scene.sceneRect())
+            self.graphics_view.resetTransform()
+            self.graphics_view.setDragMode(self.graphics_view.DragMode.ScrollHandDrag)
+            self.graphics_view.fitInView(self.graphics_scene.sceneRect(), Qt.KeepAspectRatio)
+            self.graphics_view.centerOn(item)
+            return
+
+        if self.image_label is None:
             return
 
         pixmap = QPixmap.fromImage(self._current_image)
-        scaled = pixmap.scaled(
-            label_size,
+        new_w = max(1, int(pixmap.width() * self._zoom_factor))
+        new_h = max(1, int(pixmap.height() * self._zoom_factor))
+
+        fit_pixmap = pixmap.scaled(
+            QSize(new_w, new_h),
             Qt.KeepAspectRatio,
             Qt.SmoothTransformation,
         )
-        self.image_label.setPixmap(scaled)
+        self.image_label.setPixmap(fit_pixmap)
+        self.image_label.setFixedSize(fit_pixmap.size())
+        self.image_label.setMinimumSize(0, 0)
+
+    def set_image(self, image: QImage):
+        if image is None or image.isNull():
+            return
+
+        self._current_image = image.copy()
+        self._zoom_factor = 1.0
+
+        if self.popup_type == "comic":
+            self._refresh_image_view()
+            return
+
+        if self.image_label is None:
+            return
+
+        self._refresh_image_view()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -249,6 +406,9 @@ class PopupWindow(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
+        self.resize(*self._popup_size)
+        self.setMinimumSize(*self._popup_size)
+        self.setMaximumSize(*self._popup_size)
         if self.parent_window is not None and hasattr(self.parent_window, "_position_popup"):
             self.parent_window._position_popup(self)
         else:
@@ -270,18 +430,20 @@ class PopupWindow(QWidget):
         self._selected_paths = paths
         self._translated_images = []
         self._translated_entries = []
+        self._navigation_images = []
+        self._navigation_index = -1
         if self.text_label is not None:
             self.text_label.setText(f"{len(paths)} file(s) selected")
         if self.title_label is not None:
             self.title_label.setText(f"Translate Comic ({len(paths)} file(s))")
+        self._sync_navigation_buttons()
 
         self.set_download_state(True, 0, len(paths))
         if self.parent_window is not None and hasattr(self.parent_window, "process_comic_selection"):
             self.parent_window.process_comic_selection(paths)
 
         first_image = QImage(paths[0])
-        if not first_image.isNull() and self.image_label is not None:
-            self.image_label.show()
+        if not first_image.isNull():
             self.set_image(first_image)
 
     def download_selected_images(self):
@@ -310,6 +472,9 @@ class PopupWindow(QWidget):
             valid_count += 1
 
         QMessageBox.information(self, "Download", f"Đã tải xuống {valid_count} ảnh.")
+
+    def closeEvent(self, event):
+        super().closeEvent(event)
 
 
 
@@ -423,6 +588,7 @@ class ComicSelectionWorker(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.setWindowTitle("OCR Translate")
 
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
@@ -457,10 +623,19 @@ class MainWindow(QMainWindow):
         self.capture_timer.timeout.connect(self.check_capture)
         self.last_box_chat_text = None
 
+        self.backend_status_timer = QTimer(self)
+        self.backend_status_timer.setInterval(30000)
+        self.backend_status_timer.timeout.connect(self.check_backend_status)
+        self.check_backend_status()
+        self.backend_status_timer.start()
+
         self.processing = False
         self.api_error_shown = False
 
     def _create_result_popups(self):
+        if self.result_popups:
+            return
+
         self.result_popups = {
             "Translate Screen": PopupWindow("translate_screen_popup.ui", "Translate Screen", "screen", self),
             "Translate Box Chat": PopupWindow("translate_box_chat_popup.ui", "Translate Box Chat", "chat", self),
@@ -522,6 +697,30 @@ class MainWindow(QMainWindow):
         mode_name = self.ui.mode_ocr.currentText()
         self.capture_timer.setInterval(1000 if mode_name == "Translate Box Chat" else 500)
 
+    def _set_backend_status(self, is_running: bool):
+        dot_color = "#22C55E" if is_running else "#A63A1F"
+        text = "Backend is running" if is_running else "Backend not running"
+
+        if hasattr(self.ui, "label_indicator_backend_status"):
+            self.ui.label_indicator_backend_status.setText(
+                f'<span style="color:{dot_color}; font-size: 14px; font-weight: 700;">●</span>'
+            )
+
+        if hasattr(self.ui, "label_check_status_backend"):
+            self.ui.label_check_status_backend.setText(text)
+            self.ui.label_check_status_backend.setStyleSheet(
+                "color: #F8FAFC; background: transparent; font-weight: 600;"
+            )
+
+    def check_backend_status(self):
+        try:
+            response = requests.get("http://localhost:8052/health", timeout=2)
+            is_running = response.status_code == 200
+        except Exception:
+            is_running = False
+
+        self._set_backend_status(is_running)
+
     def on_mode_changed(self, index):
         mode_name = self.ui.mode_ocr.currentText()
         self.last_box_chat_text = None
@@ -537,6 +736,10 @@ class MainWindow(QMainWindow):
         for name, popup in self.result_popups.items():
             popup.hide()
 
+        if mode_name == "Please select mode":
+            self._sync_mode_controls()
+            return
+
         popup = self.result_popups.get(mode_name)
         if popup is not None:
             popup.show()
@@ -546,12 +749,7 @@ class MainWindow(QMainWindow):
         self._sync_mode_controls()
 
     def show_selected_popup(self):
-        mode_name = self.ui.mode_ocr.currentText()
-        popup = self.result_popups.get(mode_name)
-        if popup is not None:
-            popup.show()
-            popup.raise_()
-            self._position_popup(popup)
+        return
 
     def toggle_capture(self):
         mode_name = self.ui.mode_ocr.currentText()
@@ -697,9 +895,13 @@ class MainWindow(QMainWindow):
 
         popup._translated_entries.append((filename, image))
         popup._translated_images.append(image)
-        popup.set_image(image)
+        popup._navigation_images = list(popup._translated_images)
+        if popup._navigation_index < 0 and popup._navigation_images:
+            popup._navigation_index = 0
+            popup.set_image(popup._navigation_images[popup._navigation_index])
         if popup.text_label is not None:
             popup.text_label.setText(f"Đã dịch {len(popup._translated_images)}/{len(popup._selected_paths)}")
+        popup._sync_navigation_buttons()
 
     def on_comic_selection_progress(self, current: int, total: int):
         popup = self.result_popups.get("Translate Comic")

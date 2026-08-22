@@ -60,6 +60,16 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Comic Translator API", lifespan=lifespan)
 
 
+@app.get("/health")
+async def health_check():
+    return JSONResponse(
+        {
+            "status": "ok",
+            "models_loaded": models_loaded(),
+        }
+    )
+
+
 # =========================
 # GLOBAL LOCK
 # Only allow 1 request at a time to prevent OOM and model conflicts

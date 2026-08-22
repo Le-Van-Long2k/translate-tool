@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>360</width>
-    <height>220</height>
+    <width>1101</width>
+    <height>891</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,41 +16,19 @@
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QLabel" name="title_label">
+     <property name="styleSheet">
+      <string notr="true">font-weight: 600; font-size: 14px; color: #F8FAFC;</string>
+     </property>
      <property name="text">
       <string>Translate Comic</string>
      </property>
      <property name="alignment">
-      <set>Qt::AlignCenter</set>
-     </property>
-     <property name="styleSheet">
-      <string notr="true">font-weight: 600; font-size: 14px; color: #F8FAFC;</string>
+      <set>Qt::AlignmentFlag::AlignCenter</set>
      </property>
     </widget>
    </item>
    <item>
-    <widget class="QLabel" name="image_label">
-     <property name="text">
-      <string></string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignCenter</set>
-     </property>
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="minimumSize">
-      <size>
-       <width>0</width>
-       <height>0</height>
-      </size>
-     </property>
-     <property name="styleSheet">
-      <string notr="true">background: rgba(15,23,42,0.8); border: 1px solid rgba(251,191,36,0.9); border-radius: 8px;</string>
-     </property>
-    </widget>
+    <widget class="QGraphicsView" name="graphicsView"/>
    </item>
    <item>
     <widget class="QPushButton" name="select_btn">

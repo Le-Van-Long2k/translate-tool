@@ -1,55 +1,62 @@
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+# -*- coding: utf-8 -*-
+
+################################################################################
+## Form generated from reading UI file 'translate_comic_popupuEHdrq.ui'
+##
+## Created by: Qt User Interface Compiler version 6.11.1
+##
+## WARNING! All changes made in this file will be lost when recompiling UI file!
+################################################################################
+
+from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
+from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
+    QFont, QFontDatabase, QGradient, QIcon,
+    QImage, QKeySequence, QLinearGradient, QPainter,
+    QPalette, QPixmap, QRadialGradient, QTransform)
+from PySide6.QtWidgets import (QApplication, QGraphicsView, QLabel, QPushButton,
+    QSizePolicy, QVBoxLayout, QWidget)
+
+class Ui_ComicPopup(object):
+    def setupUi(self, ComicPopup):
+        if not ComicPopup.objectName():
+            ComicPopup.setObjectName(u"ComicPopup")
+        ComicPopup.resize(1101, 891)
+        self.verticalLayout = QVBoxLayout(ComicPopup)
+        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.title_label = QLabel(ComicPopup)
+        self.title_label.setObjectName(u"title_label")
+        self.title_label.setStyleSheet(u"font-weight: 600; font-size: 14px; color: #F8FAFC;")
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.verticalLayout.addWidget(self.title_label)
+
+        self.graphicsView = QGraphicsView(ComicPopup)
+        self.graphicsView.setObjectName(u"graphicsView")
+
+        self.verticalLayout.addWidget(self.graphicsView)
+
+        self.select_btn = QPushButton(ComicPopup)
+        self.select_btn.setObjectName(u"select_btn")
+
+        self.verticalLayout.addWidget(self.select_btn)
+
+        self.download_btn = QPushButton(ComicPopup)
+        self.download_btn.setObjectName(u"download_btn")
+
+        self.verticalLayout.addWidget(self.download_btn)
 
 
-class BoxChatResultPopup(QWidget):
-    def __init__(self, title: str = "Translate Box Chat"):
-        super().__init__()
-        self.dragging = False
-        self.offset = QPoint()
+        self.retranslateUi(ComicPopup)
 
-        self.setWindowTitle(title)
-        flags = (
-            Qt.Tool
-            | Qt.CustomizeWindowHint
-            | Qt.FramelessWindowHint
-            | Qt.WindowStaysOnTopHint
-        )
+        QMetaObject.connectSlotsByName(ComicPopup)
+    # setupUi
 
-        self.setWindowFlags(flags)
-        self.setWindowFlag(Qt.WindowCloseButtonHint, False)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
-        self.resize(320, 140)
+    def retranslateUi(self, ComicPopup):
+        ComicPopup.setWindowTitle(QCoreApplication.translate("ComicPopup", u"Translate Comic", None))
+        self.title_label.setText(QCoreApplication.translate("ComicPopup", u"Translate Comic", None))
+        self.select_btn.setText(QCoreApplication.translate("ComicPopup", u"Select image(s)", None))
+        self.download_btn.setText(QCoreApplication.translate("ComicPopup", u"Download", None))
+    # retranslateUi
 
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(12, 12, 12, 12)
-
-        self.text_label = QLabel("Translated text")
-        self.text_label.setAlignment(Qt.AlignCenter)
-        self.text_label.setWordWrap(True)
-        self.text_label.setStyleSheet(
-            "font-size: 20px; font-weight: 600; color: white; background: rgba(0, 0, 0, 90); border: 1px solid rgba(255,255,255,60); border-radius: 12px; padding: 12px;"
-        )
-        self.layout.addWidget(self.text_label)
-
-    def set_text(self, text: str):
-        self.text_label.setText(text)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.dragging = True
-            self.offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if self.dragging:
-            self.move(event.globalPosition().toPoint() - self.offset)
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        self.dragging = False
-        event.accept()
-
-    def closeEvent(self, event):
-        event.ignore()
-        self.hide()
