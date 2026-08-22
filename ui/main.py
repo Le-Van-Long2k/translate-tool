@@ -2,8 +2,6 @@
 import sys
 
 import os
-import tempfile
-import zipfile
 from io import BytesIO
 
 from PySide6.QtUiTools import QUiLoader
@@ -60,14 +58,6 @@ class TranslationModeRequestBuilder:
             return "image/bmp"
         return "application/octet-stream"
 
-    @staticmethod
-    def _cleanup_temp_zip(path: str):
-        try:
-            if path and os.path.exists(path):
-                os.remove(path)
-        except OSError:
-            pass
-
     @classmethod
     def build(cls, image_bytes: bytes, mode_name: str, selected_paths=None, filename: str = "capture.png"):
         mode_name = (mode_name or "").strip()
@@ -76,30 +66,14 @@ class TranslationModeRequestBuilder:
         if mode_name == "Translate Box Chat":
             return {
                 "endpoint": "http://localhost:8052/translate_one_box_chat",
+                "filename": filename,
                 "files": {"file": (filename, image_bytes, cls._mime_for(filename))},
-                "temp_zip_path": None,
-            }
-
-        if mode_name == "Translate Comic" and len(selected_paths) > 1:
-            zip_path = os.path.join(tempfile.gettempdir(), "temp_ocr.zip")
-            cls._cleanup_temp_zip(zip_path)
-
-            with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-                for path in selected_paths:
-                    if not os.path.isfile(path):
-                        continue
-                    archive.write(path, os.path.basename(path))
-
-            return {
-                "endpoint": "http://localhost:8052/translate_comic_zip",
-                "files": {"file": ("temp_ocr.zip", open(zip_path, "rb"), "application/zip")},
-                "temp_zip_path": zip_path,
             }
 
         return {
             "endpoint": "http://localhost:8052/translate_comic",
+            "filename": filename,
             "files": {"file": (filename, image_bytes, cls._mime_for(filename))},
-            "temp_zip_path": None,
         }
 
 
@@ -554,7 +528,6 @@ class TranslateCommicWorker(QThread):
                 filename="screenshot.png",
             )
 
-            temp_zip_path = request.get("temp_zip_path")
             try:
                 response = requests.post(
                     request["endpoint"],
@@ -563,10 +536,9 @@ class TranslateCommicWorker(QThread):
                 )
                 response.raise_for_status()
             finally:
-                if temp_zip_path:
-                    TranslationModeRequestBuilder._cleanup_temp_zip(temp_zip_path)
-                    if request["files"].get("file") and hasattr(request["files"]["file"][1], "close"):
-                        request["files"]["file"][1].close()
+                file_tuple = request["files"].get("file")
+                if file_tuple and hasattr(file_tuple[1], "close"):
+                    file_tuple[1].close()
 
             if self.mode_name == "Translate Box Chat":
                 payload = response.json()
@@ -998,16 +970,18 @@ class MainWindow(QMainWindow):
 
         print("Lỗi:", msg)
         self.processing = False
+        self.previous_image = None
 
         chat_popup = self.result_popups.get("Translate Box Chat")
         if chat_popup is not None:
             chat_popup.set_text(msg)
 
-        QMessageBox.critical(self, "Lỗi", f"API thất bại:\n{msg}")
-        self.stop_capture()
+        QMessageBox.warning(self, "Lỗi", f"API thất bại, đang tiếp tục xử lý ảnh tiếp theo:\n{msg}")
+        if self.capture_timer.isActive():
+            self.capture_timer.start()
 
-        if QApplication.instance() is not None:
-            QApplication.instance().quit()
+        if self.selector is not None:
+            self.selector.start_capture()
 
     def show_image(self, image: QImage):
         if image is None or image.isNull():

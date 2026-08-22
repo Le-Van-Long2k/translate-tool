@@ -1,4 +1,7 @@
 run:
+	docker compose up -d --build turbo-ocr translator-backend
+
+run_all:
 	docker compose up -d --build
 
 build_new:

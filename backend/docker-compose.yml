@@ -8,8 +8,15 @@ services:
     volumes:
       - ./translator/models:/models
     gpus: all
+    env_file:
+      - .env
     command: >
-      --model /models/Hy-MT2-7B-Q4_K_M.gguf  --host 0.0.0.0  --port 8080  --n-gpu-layers 99  --ctx-size 2048
+      --model /models/${LLAMA_MODEL}
+      --host ${LLAMA_HOST}
+      --port ${LLAMA_PORT}
+      --n-gpu-layers ${LLAMA_GPU_LAYERS}
+      --ctx-size ${LLAMA_CTX_SIZE}
+      --flash-attn on
 
   translator-backend:
     container_name: translator-backend
@@ -26,6 +33,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - UV_LINK_MODE=copy
+    env_file:
+      - .env
     shm_size: '4gb'
     stdin_open: true
     tty: true

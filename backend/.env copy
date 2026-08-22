@@ -1,0 +1,8 @@
+LLAMA_MODEL=Hy-MT2-7B-Q4_K_M.gguf
+LLAMA_HOST=0.0.0.0
+LLAMA_PORT=8080
+LLAMA_CTX_SIZE=2048
+LLAMA_GPU_LAYERS=99
+
+TRANSLATE_TARGET_LANG=vi
+TRANSLATE_SYSTEM_PROMPT="Dịch sang Tiếng Việt.\nTự xác định ý nghĩa và dịch theo ngữ cảnh phù hợp nhất.\nKhông tự thêm tên riêng hoặc nội dung.\nChỉ trả về bản dịch.\nKhông dịch được → trả nguyên văn bản gốc.\nKhông giải thích.\nKhông thêm ghi chú."

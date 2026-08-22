@@ -13,7 +13,7 @@ logger = logging.getLogger("TEXT_RENDERER")
 class PILCenteredTextRenderer(TextRenderer):
     def __init__(
         self,
-        font_path: str = "/usr/share/fonts/truetype/noto/NotoSans-Medium.ttf",
+        font_path: str = "/usr/share/fonts/truetype/noto/NotoSans-SemiBold.ttf",
     ):
         self.font_path = font_path
 
@@ -486,9 +486,9 @@ class PILCenteredTextRenderer(TextRenderer):
             draw.text(
                 (x, y),
                 line,
-                fill=(0, 0, 0),
+                fill=(20, 20, 20),
                 font=best_font,
-                stroke_width=1,
+                stroke_width=max(1, best_font.size // 12),
                 stroke_fill=(255, 255, 255),
             )
 

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import time
 from typing import List
 
@@ -9,11 +10,20 @@ from translator.translator import ITranslator
 
 logger = logging.getLogger("TRANSLATOR")
 
+DEFAULT_SYSTEM_PROMPT = (
+    "Dịch sang Tiếng Việt.\n"
+    "Tự xác định ý nghĩa và dịch theo ngữ cảnh phù hợp nhất.\n"
+    "Không tự thêm tên riêng hoặc nội dung.\n"
+    "Chỉ trả về bản dịch.\n"
+    "Không dịch được → trả nguyên văn bản gốc.\n"
+    "Không giải thích.\n"
+    "Không thêm ghi chú.\n"
+)
 
 class TencentTranslator(ITranslator):
     def __init__(
         self,
-        model: str = "/models/Hy-MT2-1.8B-Q8_0.gguf",
+        model: str = "",
         url: str = "http://llama-server:8080/v1/chat/completions",
         timeout: float = 60.0,
         max_concurrency: int = 5,
@@ -49,7 +59,7 @@ class TencentTranslator(ITranslator):
         client: httpx.AsyncClient,
         text: str,
         idx: int,
-        from_lang: str,
+        from_lang: str, # not used because llm server can detect language automatically
         to_lang: str,
         context: str = "",
     ):
@@ -57,21 +67,15 @@ class TencentTranslator(ITranslator):
         if not text or not text.strip():
             return idx, ""
 
-        from_lang = self._normalize_lang(from_lang)
         to_lang = self._normalize_lang(to_lang)
 
         # -----------------------------
         # SYSTEM PROMPT
         # -----------------------------
 
-        system_prompt = (
-            f"Dịch sang Tiếng Việt.\n"
-            f"Tự xác định ý nghĩa và dịch theo ngữ cảnh phù hợp nhất.\n"
-            f"Không tự thêm tên riêng hoặc nội dung.\n"
-            f"Chỉ trả về bản dịch.\n"
-            f"Không dịch được → trả nguyên văn bản gốc.\n"
-            f"Không giải thích.\n"
-            f"Không thêm ghi chú.\n"
+        system_prompt = os.getenv(
+            "TRANSLATE_SYSTEM_PROMPT",
+            DEFAULT_SYSTEM_PROMPT,
         )
 
         if context:
@@ -82,7 +86,6 @@ class TencentTranslator(ITranslator):
         # -----------------------------
 
         payload = {
-            "model": self.model,
             "messages": [
                 {
                     "role": "system",

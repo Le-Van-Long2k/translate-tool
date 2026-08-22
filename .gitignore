@@ -46,6 +46,7 @@ backend/translator/models/**
 backend/logs/**
 backend/turboocr-cache/**
 backend/*.deb
+backend/.env
 # =========================
 # Node (frontend)
 # =========================
