@@ -260,9 +260,12 @@ class PopupWindow(QWidget):
         self._is_translating = is_translating
         if is_translating:
             if total > 0:
-                self.download_btn.setText(f"Đang xử lý {current}/{total}")
+                label = f"Đang xử lý {current}/{total}"
+                if hasattr(self, "_download_mode") and self._download_mode:
+                    label = f"Đang download {current}/{total} ảnh"
+                self.download_btn.setText(label)
             else:
-                self.download_btn.setText("Đang dịch...")
+                self.download_btn.setText("Đang download..." if getattr(self, "_download_mode", False) else "Đang dịch...")
             self.download_btn.setEnabled(False)
             self.download_btn.setStyleSheet(
                 "background: #F59E0B; color: #0F172A; border: 1px solid #F59E0B; border-radius: 8px; padding: 6px 12px;"
@@ -290,10 +293,12 @@ class PopupWindow(QWidget):
     def set_preview_images(self, images):
         self._translated_images = list(images or [])
         self._navigation_images = self._translated_images
-        self._navigation_index = 0 if self._navigation_images else -1
+        if self._navigation_index < 0 and self._navigation_images:
+            self._navigation_index = 0
         self._sync_navigation_buttons()
-        if self._navigation_images and self.popup_type == "comic":
-            self.set_image(self._navigation_images[self._navigation_index])
+        if self.popup_type == "comic" and self._navigation_images and self._navigation_index >= 0:
+            if self._current_image is None:
+                self.set_image(self._navigation_images[self._navigation_index])
         elif self.text_label is not None:
             self.text_label.setText(f"{len(self._translated_images)} file(s) translated")
         self.set_download_state(False)
@@ -463,19 +468,64 @@ class PopupWindow(QWidget):
         if not save_dir:
             return
 
-        valid_count = 0
-        for filename, image in entries:
-            if image is None or image.isNull():
-                continue
-            out_path = os.path.join(save_dir, filename)
-            image.save(out_path)
-            valid_count += 1
+        self._download_mode = True
+        self.set_download_state(True, 0, len(entries))
+        self.download_btn.setEnabled(False)
 
-        QMessageBox.information(self, "Download", f"Đã tải xuống {valid_count} ảnh.")
+        self.download_worker = DownloadComicWorker(entries, save_dir)
+        self.download_worker.progress.connect(self.on_download_progress)
+        self.download_worker.finished.connect(self.on_download_finished)
+        self.download_worker.error.connect(self.on_download_error)
+        self.download_worker.start()
+
+    def on_download_progress(self, current: int, total: int):
+        if self.popup_type != "comic":
+            return
+        self.set_download_state(True, current, total)
+
+    def on_download_finished(self, count: int):
+        if self.popup_type != "comic":
+            return
+        self._download_mode = False
+        self.set_download_state(False)
+        QMessageBox.information(self, "Download", f"Đã tải xuống {count} ảnh.")
+
+    def on_download_error(self, msg: str):
+        if self.popup_type != "comic":
+            return
+        self._download_mode = False
+        self.set_download_state(False)
+        QMessageBox.critical(self, "Download", f"Không thể tải xuống ảnh:\n{msg}")
 
     def closeEvent(self, event):
         super().closeEvent(event)
 
+
+class DownloadComicWorker(QThread):
+    progress = Signal(int, int)
+    finished = Signal(int)
+    error = Signal(str)
+
+    def __init__(self, entries, save_dir):
+        super().__init__()
+        self.entries = entries or []
+        self.save_dir = save_dir
+
+    def run(self):
+        try:
+            valid_count = 0
+            total = len(self.entries)
+            for index, (filename, image) in enumerate(self.entries, start=1):
+                if image is None or image.isNull():
+                    self.progress.emit(index, total)
+                    continue
+                out_path = os.path.join(self.save_dir, filename)
+                image.save(out_path)
+                valid_count += 1
+                self.progress.emit(index, total)
+            self.finished.emit(valid_count)
+        except Exception as exc:
+            self.error.emit(str(exc))
 
 
 class TranslateCommicWorker(QThread):
