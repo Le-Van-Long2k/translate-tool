@@ -1,7 +1,9 @@
 run:
+	cp -f .env.example .env
 	docker compose up -d --build turbo-ocr translator-backend
 
 run_all:
+	cp -f .env.example .env
 	docker compose up -d --build
 
 build_new:
