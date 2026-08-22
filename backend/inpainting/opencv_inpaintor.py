@@ -1,5 +1,3 @@
-import os
-import time
 import numpy as np
 import cv2
 
@@ -90,23 +88,6 @@ class OpencvInpaintor(Inpainter):
 
         output = image.copy()
 
-        unique_id = int(time.time() * 1000)
-
-        crop_dir = None
-        mask_dir = None
-        inpaint_dir = None
-
-        if debug_dir is not None:
-            os.makedirs(debug_dir, exist_ok=True)
-
-            crop_dir = os.path.join(debug_dir, "01_crop")
-            mask_dir = os.path.join(debug_dir, "02_mask")
-            inpaint_dir = os.path.join(debug_dir, "03_inpaint")
-
-            os.makedirs(crop_dir, exist_ok=True)
-            os.makedirs(mask_dir, exist_ok=True)
-            os.makedirs(inpaint_dir, exist_ok=True)
-
         for i, item in enumerate(ocr_results):
 
             if i >= len(crop_boxes):
@@ -131,16 +112,10 @@ class OpencvInpaintor(Inpainter):
             if len(local_boxes) == 0:
                 continue
 
-            if crop_dir is not None:
-                cv2.imwrite(os.path.join(crop_dir, f"{unique_id}_{i:03d}_crop.png"), crop)
-
             mask = self.create_local_mask(crop.shape, local_boxes, pad=pad)
 
             if not mask.any():
                 continue
-
-            if mask_dir is not None:
-                cv2.imwrite(os.path.join(mask_dir, f"{unique_id}_{i:03d}_mask.png"), mask)
 
             inpainted_crop = self.inpaint(crop, mask)
 
@@ -151,9 +126,6 @@ class OpencvInpaintor(Inpainter):
 
             if inpainted_crop.shape[:2] != (target_h, target_w):
                 inpainted_crop = cv2.resize(inpainted_crop, (target_w, target_h), interpolation=cv2.INTER_LINEAR)
-
-            if inpaint_dir is not None:
-                cv2.imwrite(os.path.join(inpaint_dir, f"{unique_id}_{i:03d}_inpaint.png"), inpainted_crop)
 
             output[y1:y2, x1:x2] = inpainted_crop
 

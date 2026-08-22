@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
+import subprocess
+import time
 
 import os
 from io import BytesIO
@@ -607,6 +609,45 @@ class ComicSelectionWorker(QThread):
             self.error.emit(str(e))
 
 
+class BackendStartupWorker(QThread):
+    finished = Signal(bool, str)
+
+    def __init__(self, backend_dir: str, backend_mode: str):
+        super().__init__()
+        self.backend_dir = backend_dir
+        self.backend_mode = backend_mode
+
+    def _health_ok(self) -> bool:
+        try:
+            response = requests.get("http://localhost:8052/health", timeout=2)
+            return response.status_code == 200
+        except Exception:
+            return False
+
+    def run(self):
+        try:
+            target = "run_with_ai" if self.backend_mode == "ai" else "run_with_google_translate"
+            subprocess.Popen(
+                f"cd '{self.backend_dir}' && make {target}",
+                cwd=self.backend_dir,
+                shell=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+
+            deadline = time.monotonic() + 180
+            while time.monotonic() < deadline:
+                if self._health_ok():
+                    self.finished.emit(True, "Backend đã running")
+                    return
+                time.sleep(2)
+
+            self.finished.emit(False, "Không thể khởi động backend bằng make run_with_*")
+        except Exception as exc:
+            self.finished.emit(False, str(exc))
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -615,6 +656,10 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self._apply_main_window_position()
+        self.backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend"))
+        self.backend_mode = None
+        self.startup_dialog = None
+        self.startup_worker = None
 
         self.setStyleSheet(
             "QMainWindow { background: #0F172A; color: #E2E8F0; } "
@@ -624,6 +669,7 @@ class MainWindow(QMainWindow):
             "QComboBox { background: #111827; color: #F8FAFC; border: 1px solid rgba(148, 163, 184, 0.8); border-radius: 6px; padding: 4px 8px; }"
         )
 
+        self.backend_ready = False
         self.selector = None
         self.selected_rect = None
         self.selected_image = None
@@ -646,13 +692,130 @@ class MainWindow(QMainWindow):
         self.last_box_chat_text = None
 
         self.backend_status_timer = QTimer(self)
-        self.backend_status_timer.setInterval(30000)
+        self.backend_status_timer.setInterval(10000)
         self.backend_status_timer.timeout.connect(self.check_backend_status)
         self.check_backend_status()
         self.backend_status_timer.start()
 
         self.processing = False
         self.api_error_shown = False
+        QTimer.singleShot(0, self._start_backend_sequence)
+
+    def _start_backend_sequence(self):
+        if self.backend_mode is None:
+            self._prompt_backend_mode()
+
+        self._show_startup_status("Đang khởi động backend...")
+        self.startup_worker = BackendStartupWorker(self.backend_dir, self.backend_mode)
+        self.startup_worker.finished.connect(self._on_backend_start_finished, Qt.QueuedConnection)
+        self.startup_worker.start()
+
+    def _on_backend_start_finished(self, ok: bool, msg: str):
+        self._hide_startup_status()
+        QApplication.processEvents()
+        if ok:
+            self.backend_ready = True
+            return
+
+        self.backend_ready = False
+        QMessageBox.critical(self, "Backend", f"Không thể khởi động backend: {msg}")
+        self.close()
+
+    def _show_startup_status(self, text: str):
+        if self.startup_dialog is not None:
+            self.startup_dialog.close()
+        self.startup_dialog = QMessageBox(self)
+        self.startup_dialog.setWindowTitle("")
+        self.startup_dialog.setText(text)
+        self.startup_dialog.setStandardButtons(QMessageBox.StandardButton.NoButton)
+        self.startup_dialog.setWindowModality(Qt.ApplicationModal)
+        self.startup_dialog.setModal(False)
+        self.startup_dialog.setWindowFlag(Qt.FramelessWindowHint, on=True)
+        self.startup_dialog.setWindowFlag(Qt.WindowStaysOnTopHint, on=True)
+        self.startup_dialog.setStyleSheet(
+            """
+            QMessageBox {
+                background: #0F172A;
+                color: #E2E8F0;
+                border: 1px solid rgba(148, 163, 184, 0.5);
+                border-radius: 12px;
+                padding: 18px 22px;
+            }
+            QLabel {
+                color: #E2E8F0;
+                background: transparent;
+                font-size: 14px;
+                font-weight: 600;
+                qproperty-alignment: AlignCenter;
+            }
+            """
+        )
+        self.startup_dialog.resize(320, 110)
+        self.startup_dialog.show()
+        self.startup_dialog.raise_()
+        self.startup_dialog.activateWindow()
+        QApplication.processEvents()
+
+    def _hide_startup_status(self):
+        if self.startup_dialog is not None:
+            self.startup_dialog.hide()
+            self.startup_dialog.close()
+            self.startup_dialog.deleteLater()
+            self.startup_dialog = None
+            QApplication.processEvents()
+
+    def _prompt_backend_mode(self):
+        choice = QMessageBox.question(
+            self,
+            "Chọn backend",
+            "Bạn có dùng AI để translate không?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        self.backend_mode = "ai" if choice == QMessageBox.StandardButton.Yes else "google"
+        return self.backend_mode
+
+    def _backend_health_check(self) -> bool:
+        try:
+            response = requests.get("http://localhost:8052/health", timeout=2)
+            return response.status_code == 200
+        except Exception:
+            return False
+
+    def _wait_for_backend(self, timeout_seconds: int = 300) -> bool:
+        deadline = time.monotonic() + timeout_seconds
+        while time.monotonic() < deadline:
+            if self._backend_health_check():
+                return True
+            time.sleep(3)
+        return self._backend_health_check()
+
+    def _ensure_backend_ready(self) -> bool:
+        if self.backend_mode is None:
+            self._prompt_backend_mode()
+
+        if self._backend_health_check():
+            return True
+
+        return False
+
+    def _stop_backend_and_docker(self):
+        self._run_shell_command(f"cd '{self.backend_dir}' && make stop || true", "Stop Backend")
+
+    def _run_shell_command(self, command: str, label: str) -> bool:
+        try:
+            subprocess.Popen(
+                command,
+                cwd=self.backend_dir,
+                shell=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            return True
+        except Exception as exc:
+            QMessageBox.critical(self, label, f"Không thể chạy lệnh: {command}\n\nLỗi: {exc}")
+            return False
 
     def _create_result_popups(self):
         if self.result_popups:
@@ -992,6 +1155,7 @@ class MainWindow(QMainWindow):
         return
 
     def closeEvent(self, event):
+        self._stop_backend_and_docker()
         for popup in self.result_popups.values():
             popup.close()
         if self.selector is not None:

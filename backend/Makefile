@@ -1,22 +1,24 @@
-run:
+run_with_google_translate:
 	cp -f .env.example .env
+	sed -i 's/^TRANSLATE_MODEL=.*/TRANSLATE_MODEL=google_translator/' .env
 	docker compose up -d --build turbo-ocr translator-backend
 
-run_all:
+run_with_ai:
 	cp -f .env.example .env
+	sed -i 's/^TRANSLATE_MODEL=.*/TRANSLATE_MODEL=hy-mt/' .env
 	docker compose up -d --build
 
-build_new:
-	sudo rm -rf .venv
-	sudo rm -rf logs/*
-	docker compose up -d --build
-
-commit:
-	git add .
-	git commit -m "Update code"
+stop:
+	docker compose stop 
 
 run_backend:
 	docker exec -it translator-backend bash run-backend.sh
+
+build_first_backend:
+	rm -rf .venv
+	rm -rf logs/*
+	cp -f .env.example .env
+	docker compose up -d --build
 
 rebuild_fastapi:
 	docker compose stop translator-backend

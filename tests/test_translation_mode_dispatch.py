@@ -44,6 +44,43 @@ def test_comic_mode_uses_direct_image_uploads_for_multiple_files():
     assert req.get("temp_zip_path") is None
 
 
+def test_main_window_can_start_and_stop_docker(monkeypatch):
+    app = QApplication.instance() or QApplication([])
+    window = MainWindow()
+    calls = []
+
+    def fake_popen(command, cwd=None, shell=None, stdout=None, stderr=None, text=None, start_new_session=None):
+        calls.append({"command": command, "cwd": cwd})
+        return object()
+
+    monkeypatch.setattr("ui.main.subprocess.Popen", fake_popen)
+
+    window.start_docker()
+    window.stop_docker()
+
+    assert calls[0]["command"].startswith("cd ") and "docker compose up -d --build" in calls[0]["command"]
+    assert calls[1]["command"].startswith("cd ") and "docker compose down" in calls[1]["command"]
+    window.close()
+
+
+def test_main_window_can_start_backend(monkeypatch):
+    app = QApplication.instance() or QApplication([])
+    window = MainWindow()
+    calls = []
+
+    def fake_popen(command, cwd=None, shell=None, stdout=None, stderr=None, text=None, start_new_session=None):
+        calls.append({"command": command, "cwd": cwd})
+        return object()
+
+    monkeypatch.setattr("ui.main.subprocess.Popen", fake_popen)
+
+    window.start_backend()
+
+    assert any("docker compose up -d --build translator-backend" in call["command"] for call in calls)
+    assert any("docker exec -d translator-backend bash -lc \"bash run-backend.sh\"" in call["command"] for call in calls)
+    window.close()
+
+
 def test_on_bubble_error_keeps_app_running_and_allows_next_frame(monkeypatch):
     app = QApplication.instance() or QApplication([])
     window = MainWindow()

@@ -20,6 +20,7 @@ from bubble_detector.bubble_detector_factory import (
     BubbleDetectorFactory,
     BubbleDetectorType,
 )
+from config import get_default_config
 from inpainting.inpainter_factory import (
     InpainterFactory,
     InpainterType,
@@ -94,15 +95,16 @@ class ConfigModel(BaseModel):
 # =========================
 # DEFAULT CONFIG
 # =========================
+DEFAULT_CONFIG = get_default_config()
 CONFIG = ConfigModel()
 
-CONFIG.detect_model = BubbleDetectorType.RTDETR_COMIC_DETECTOR
-CONFIG.ocr_model = OCREngineType.TURBO_OCR
-CONFIG.inpaint_model = InpainterType.OPENCV
-CONFIG.translate_model = TranslatorType.TENCENT_HY_MT
-CONFIG.source_lang = SourceLang.auto
-CONFIG.target_lang = TargetLang.vi
-CONFIG.font_size_ratio = 1.0
+CONFIG.detect_model = DEFAULT_CONFIG["detect_model"]
+CONFIG.ocr_model = DEFAULT_CONFIG["ocr_model"]
+CONFIG.inpaint_model = DEFAULT_CONFIG["inpaint_model"]
+CONFIG.translate_model = DEFAULT_CONFIG["translate_model"]
+CONFIG.source_lang = DEFAULT_CONFIG["source_lang"]
+CONFIG.target_lang = DEFAULT_CONFIG["target_lang"]
+CONFIG.font_size_ratio = DEFAULT_CONFIG["font_size_ratio"]
 
 
 # =========================

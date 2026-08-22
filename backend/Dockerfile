@@ -38,4 +38,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8052
 
 # CMD ["uv", "run", "gradio", "app.py"]
-# CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8052"]
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8052"]

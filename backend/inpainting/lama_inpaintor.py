@@ -1,4 +1,3 @@
-import os
 import time
 import torch
 import numpy as np
@@ -144,40 +143,6 @@ class LamaInpaintor(Inpainter):
         # work directly on output
         output = image.copy()
 
-        # unique session id
-        unique_id = int(time.time() * 1000)
-
-        # =====================================================
-        # DEBUG DIR
-        # =====================================================
-
-        crop_dir = None
-        mask_dir = None
-        inpaint_dir = None
-
-        if debug_dir is not None:
-
-            os.makedirs(debug_dir, exist_ok=True)
-
-            crop_dir = os.path.join(
-                debug_dir,
-                "01_crop",
-            )
-
-            mask_dir = os.path.join(
-                debug_dir,
-                "02_mask",
-            )
-
-            inpaint_dir = os.path.join(
-                debug_dir,
-                "03_inpaint",
-            )
-
-            os.makedirs(crop_dir, exist_ok=True)
-            os.makedirs(mask_dir, exist_ok=True)
-            os.makedirs(inpaint_dir, exist_ok=True)
-
         # =====================================================
         # LOOP
         # =====================================================
@@ -212,20 +177,6 @@ class LamaInpaintor(Inpainter):
                 continue
 
             # =================================================
-            # SAVE CROP
-            # =================================================
-
-            if crop_dir is not None:
-
-                cv2.imwrite(
-                    os.path.join(
-                        crop_dir,
-                        f"{unique_id}_{i:03d}_crop.png",
-                    ),
-                    crop,
-                )
-
-            # =================================================
             # CREATE MASK
             # =================================================
 
@@ -237,20 +188,6 @@ class LamaInpaintor(Inpainter):
 
             if not mask.any():
                 continue
-
-            # =================================================
-            # SAVE MASK
-            # =================================================
-
-            if mask_dir is not None:
-
-                cv2.imwrite(
-                    os.path.join(
-                        mask_dir,
-                        f"{unique_id}_{i:03d}_mask.png",
-                    ),
-                    mask,
-                )
 
             # =================================================
             # INPAINT
@@ -281,20 +218,6 @@ class LamaInpaintor(Inpainter):
                     inpainted_crop,
                     (target_w, target_h),
                     interpolation=cv2.INTER_LINEAR,
-                )
-
-            # =================================================
-            # SAVE INPAINT
-            # =================================================
-
-            if inpaint_dir is not None:
-
-                cv2.imwrite(
-                    os.path.join(
-                        inpaint_dir,
-                        f"{unique_id}_{i:03d}_inpaint.png",
-                    ),
-                    inpainted_crop,
                 )
 
             # =================================================
