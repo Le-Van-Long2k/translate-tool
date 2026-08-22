@@ -1,14 +1,18 @@
 import time
 from typing import List, Tuple
 import logging
+
 import numpy as np
 import torch
 from PIL import Image
+
 from bubble_detector.bubble_detector import BubbleDetector
+
 from transformers import (
     RTDetrImageProcessor,
     RTDetrV2ForObjectDetection,
 )
+
 
 logger = logging.getLogger("RTDETRComicDetector")
 
@@ -121,7 +125,7 @@ class RTDETRComicDetector(BubbleDetector):
     def detect(
         self,
         image_path: str,
-        conf: float = 0.25
+        conf: float = 0.5
     ) -> List[Tuple[int, int, int, int]]:
 
         if self.model is None:
@@ -129,10 +133,26 @@ class RTDETRComicDetector(BubbleDetector):
 
         start_time = time.time()
 
+        # ------------------------------------------
+        # Load image
+        # ------------------------------------------
+
         if isinstance(image_path, np.ndarray):
             image = Image.fromarray(image_path).convert("RGB")
         else:
             image = Image.open(image_path).convert("RGB")
+
+        image_width = image.width
+        image_height = image.height
+
+        logger.debug(
+            f"[RT-DETR] Image size: "
+            f"{image_width}x{image_height}"
+        )
+
+        # ------------------------------------------
+        # Preprocess
+        # ------------------------------------------
 
         inputs = self.processor(
             images=image,
@@ -144,11 +164,15 @@ class RTDETRComicDetector(BubbleDetector):
             for k, v in inputs.items()
         }
 
+        # ------------------------------------------
+        # Detection
+        # ------------------------------------------
+
         with torch.inference_mode():
             outputs = self.model(**inputs)
 
         target_sizes = torch.tensor(
-            [[image.height, image.width]],
+            [[image_height, image_width]],
             device=self.device,
         )
 
@@ -160,7 +184,17 @@ class RTDETRComicDetector(BubbleDetector):
 
         boxes = []
 
+        # ------------------------------------------
+        # Box filtering settings
+        # ------------------------------------------
+
+        MIN_WIDTH = 10
+        MIN_HEIGHT = 10
+
+        # ------------------------------------------
         # Debug statistics
+        # ------------------------------------------
+
         class_counts = {
             "bubble": 0,
             "text_bubble": 0,
@@ -170,6 +204,10 @@ class RTDETRComicDetector(BubbleDetector):
         logger.debug(
             "========== RT-DETR DETECTIONS =========="
         )
+
+        # ------------------------------------------
+        # Process detections
+        # ------------------------------------------
 
         for score, label, box in zip(
             results["scores"],
@@ -185,33 +223,121 @@ class RTDETRComicDetector(BubbleDetector):
 
             score_value = float(score)
 
-            x1, y1, x2, y2 = box.tolist()
+            # Raw coordinates from model
+            raw_x1, raw_y1, raw_x2, raw_y2 = box.tolist()
 
             class_counts[class_name] = (
                 class_counts.get(class_name, 0) + 1
             )
 
-            # Debug: print ALL 3 classes
+            # ------------------------------------------
+            # Convert coordinates to integer
+            # ------------------------------------------
+
+            x1 = int(raw_x1)
+            y1 = int(raw_y1)
+            x2 = int(raw_x2)
+            y2 = int(raw_y2)
+
             logger.debug(
                 f"class={class_name:<12} "
                 f"id={class_id} "
                 f"score={score_value:.4f} "
-                f"box=({int(x1)}, {int(y1)}, "
-                f"{int(x2)}, {int(y2)})"
+                f"raw_box=({x1}, {y1}, {x2}, {y2})"
             )
 
-            # Chỉ lấy:
+            # ------------------------------------------
+            # Only keep text classes
+            #
             # 1 = text_bubble
             # 2 = text_free
+            # ------------------------------------------
+
             if class_id not in (1, 2):
                 continue
 
+            # ------------------------------------------
+            # Clamp coordinates to image boundaries
+            #
+            # Example:
+            #   y1 = -1
+            #
+            # becomes:
+            #   y1 = 0
+            #
+            # This prevents NumPy slicing such as:
+            #   image[-1:701]
+            #
+            # which can produce an empty crop.
+            # ------------------------------------------
+
+            original_box = (x1, y1, x2, y2)
+
+            x1 = max(0, min(x1, image_width))
+            y1 = max(0, min(y1, image_height))
+            x2 = max(0, min(x2, image_width))
+            y2 = max(0, min(y2, image_height))
+
+            clamped_box = (x1, y1, x2, y2)
+
+            if original_box != clamped_box:
+                logger.debug(
+                    f"[RT-DETR] Clamped box: "
+                    f"{original_box} -> {clamped_box}"
+                )
+
+            # ------------------------------------------
+            # Validate coordinates
+            # ------------------------------------------
+
+            if x2 <= x1 or y2 <= y1:
+                logger.debug(
+                    f"[RT-DETR] Skip invalid box: "
+                    f"class={class_name} "
+                    f"score={score_value:.4f} "
+                    f"box={clamped_box}"
+                )
+                continue
+
+            # ------------------------------------------
+            # Calculate box size
+            # ------------------------------------------
+
+            width = x2 - x1
+            height = y2 - y1
+
+            logger.debug(
+                f"[RT-DETR] Valid box: "
+                f"class={class_name} "
+                f"score={score_value:.4f} "
+                f"box=({x1}, {y1}, {x2}, {y2}) "
+                f"size=({width}x{height})"
+            )
+
+            # ------------------------------------------
+            # Remove very small boxes
+            # ------------------------------------------
+
+            if width < MIN_WIDTH or height < MIN_HEIGHT:
+                logger.debug(
+                    f"[RT-DETR] Skip small box: "
+                    f"class={class_name} "
+                    f"score={score_value:.4f} "
+                    f"box=({x1}, {y1}, {x2}, {y2}) "
+                    f"size=({width}x{height})"
+                )
+                continue
+
+            # ------------------------------------------
+            # Add valid box
+            # ------------------------------------------
+
             boxes.append(
                 (
-                    int(x1),
-                    int(y1),
-                    int(x2),
-                    int(y2),
+                    x1,
+                    y1,
+                    x2,
+                    y2,
                 )
             )
 
@@ -232,6 +358,58 @@ class RTDETRComicDetector(BubbleDetector):
         logger.debug(
             f"Boxes after merge  : {boxes_after_merge}"
         )
+
+        # ------------------------------------------
+        # Final validation after merge
+        #
+        # Safety check in case merge produces
+        # unexpected coordinates.
+        # ------------------------------------------
+
+        valid_boxes = []
+
+        for box in boxes:
+
+            x1, y1, x2, y2 = box
+
+            # Clamp again after merge
+            x1 = max(0, min(x1, image_width))
+            y1 = max(0, min(y1, image_height))
+            x2 = max(0, min(x2, image_width))
+            y2 = max(0, min(y2, image_height))
+
+            width = x2 - x1
+            height = y2 - y1
+
+            if width <= 0 or height <= 0:
+                logger.debug(
+                    f"[RT-DETR] Skip invalid merged box: "
+                    f"({x1}, {y1}, {x2}, {y2})"
+                )
+                continue
+
+            if width < MIN_WIDTH or height < MIN_HEIGHT:
+                logger.debug(
+                    f"[RT-DETR] Skip small merged box: "
+                    f"({x1}, {y1}, {x2}, {y2}) "
+                    f"size=({width}x{height})"
+                )
+                continue
+
+            valid_boxes.append(
+                (
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                )
+            )
+
+        boxes = valid_boxes
+
+        # ------------------------------------------
+        # Statistics
+        # ------------------------------------------
 
         logger.debug("------------------------------------------")
 
@@ -254,6 +432,10 @@ class RTDETRComicDetector(BubbleDetector):
         logger.debug(
             "=========================================="
         )
+
+        # ------------------------------------------
+        # Timing
+        # ------------------------------------------
 
         elapsed = time.time() - start_time
 

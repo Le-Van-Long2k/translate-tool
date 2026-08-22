@@ -95,7 +95,7 @@ class TencentTranslator(ITranslator):
             ],
             "temperature": 0.0,
             "repeat_penalty": 1.1,
-            "max_tokens": 128,
+            "max_tokens": 256,
         }
 
         # -----------------------------
@@ -125,6 +125,7 @@ class TencentTranslator(ITranslator):
                 "nếu bạn cần",
                 "có thể hiểu là",
                 "điều này có nghĩa",
+                "ngữ cảnh",
             ]
 
             lower_content = content.lower()

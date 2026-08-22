@@ -10,6 +10,7 @@ from utils.languages import SourceLang, TargetLang
 logger = logging.getLogger("TRANSLATOR")
 
 LANG_MAP = {
+    SourceLang.auto: "auto",
     SourceLang.en: "en",
     SourceLang.zh: "zh-cn",
     SourceLang.ja: "ja",
@@ -31,7 +32,7 @@ class GoogleTranslator(ITranslator):
     async def translate_batch(
         self,
         texts: List[str],
-        from_lang: str,
+        from_lang: "auto",
         to_lang: str,
         context: str = "",
     ) -> List[str]:

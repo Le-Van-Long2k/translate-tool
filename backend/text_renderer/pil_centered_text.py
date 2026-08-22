@@ -1,40 +1,339 @@
 import logging
+import re
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from text_renderer.text_renderer import TextRenderer
 
+
 logger = logging.getLogger("TEXT_RENDERER")
 
 
 class PILCenteredTextRenderer(TextRenderer):
-    def __init__(self, font_path: str = "/usr/share/fonts/truetype/noto/NotoSans-Medium.ttf"):
+    def __init__(
+        self,
+        font_path: str = "/usr/share/fonts/truetype/noto/NotoSans-Medium.ttf",
+    ):
         self.font_path = font_path
-        logger.info(f"PILCenteredTextRenderer initialized with font: {self.font_path}")
 
-    def wrap_text_pixel(self, draw, text, font, max_width):
-        words = text.split()
+        logger.info(
+            f"PILCenteredTextRenderer initialized with font: "
+            f"{self.font_path}"
+        )
+
+    # ============================================================
+    # TEXT WRAPPING
+    # ============================================================
+
+    def wrap_text_pixel(
+        self,
+        draw,
+        text: str,
+        font,
+        max_width: int,
+    ):
+        """
+        Wrap text based on actual pixel width.
+
+        Supports:
+        - Vietnamese
+        - English
+        - Chinese
+        - Japanese
+        - Korean
+        - Mixed CJK + Latin text
+        """
+
+        if not text:
+            return []
+
         lines = []
+
+        # Normalize whitespace
+        text = re.sub(r"\s+", " ", text.strip())
+
+        if not text:
+            return []
+
         current_line = ""
 
-        for word in words:
-            test_line = word if current_line == "" else current_line + " " + word
+        def text_width(value: str) -> int:
+            if not value:
+                return 0
 
-            bbox = draw.textbbox((0, 0), test_line, font=font)
-            w = bbox[2] - bbox[0]
+            bbox = draw.textbbox(
+                (0, 0),
+                value,
+                font=font,
+            )
 
-            if w <= max_width:
+            return bbox[2] - bbox[0]
+
+        def flush_line():
+            nonlocal current_line
+
+            if current_line:
+                lines.append(current_line)
+                current_line = ""
+
+        # --------------------------------------------------------
+        # Tokenize:
+        #
+        # CJK characters -> individual characters
+        # Latin words   -> words
+        # Spaces        -> separators
+        # --------------------------------------------------------
+
+        tokens = []
+
+        i = 0
+
+        while i < len(text):
+            char = text[i]
+
+            # CJK
+            if self._is_cjk(char):
+                tokens.append(char)
+                i += 1
+                continue
+
+            # Whitespace
+            if char.isspace():
+                tokens.append(" ")
+                i += 1
+                continue
+
+            # Latin / number / punctuation sequence
+            j = i
+
+            while j < len(text):
+                next_char = text[j]
+
+                if next_char.isspace() or self._is_cjk(next_char):
+                    break
+
+                j += 1
+
+            tokens.append(text[i:j])
+            i = j
+
+        # --------------------------------------------------------
+        # Build lines
+        # --------------------------------------------------------
+
+        for token in tokens:
+
+            # Space
+            if token == " ":
+                if current_line and not current_line.endswith(" "):
+                    current_line += " "
+                continue
+
+            test_line = current_line + token
+
+            if text_width(test_line.rstrip()) <= max_width:
                 current_line = test_line
-            else:
-                if current_line:
-                    lines.append(current_line)
-                current_line = word
+                continue
 
-        if current_line:
-            lines.append(current_line)
+            # Current line is full
+            if current_line.strip():
+                flush_line()
+
+            # Token itself is too large
+            if text_width(token) > max_width:
+
+                # Break character by character
+                partial = ""
+
+                for char in token:
+                    test_partial = partial + char
+
+                    if text_width(test_partial) <= max_width:
+                        partial = test_partial
+                    else:
+                        if partial:
+                            lines.append(partial)
+
+                        partial = char
+
+                current_line = partial
+
+            else:
+                current_line = token
+
+        flush_line()
 
         return lines
+
+    # ============================================================
+    # CJK DETECTION
+    # ============================================================
+
+    @staticmethod
+    def _is_cjk(char: str) -> bool:
+        """
+        Detect Chinese / Japanese / Korean characters.
+        """
+
+        code = ord(char)
+
+        return (
+            # CJK Unified Ideographs
+            0x4E00 <= code <= 0x9FFF
+
+            # CJK Extension A
+            or 0x3400 <= code <= 0x4DBF
+
+            # Hiragana
+            or 0x3040 <= code <= 0x309F
+
+            # Katakana
+            or 0x30A0 <= code <= 0x30FF
+
+            # Hangul
+            or 0xAC00 <= code <= 0xD7AF
+
+            # Hangul Jamo
+            or 0x1100 <= code <= 0x11FF
+
+            # Full-width forms
+            or 0xFF00 <= code <= 0xFFEF
+        )
+
+    # ============================================================
+    # CHECK FONT FIT
+    # ============================================================
+
+    def _check_font_fit(
+        self,
+        draw,
+        lines,
+        font,
+        max_width,
+        max_height,
+    ):
+        """
+        Check whether all lines fit inside the target box.
+        """
+
+        if not lines:
+            return False, 0
+
+        ascent, descent = font.getmetrics()
+
+        line_height = ascent + descent
+
+        total_height = line_height * len(lines)
+
+        # Vertical check
+        if total_height > max_height:
+            return False, line_height
+
+        # Horizontal check
+        for line in lines:
+
+            bbox = draw.textbbox(
+                (0, 0),
+                line,
+                font=font,
+            )
+
+            line_width = bbox[2] - bbox[0]
+
+            if line_width > max_width:
+                return False, line_height
+
+        return True, line_height
+
+    # ============================================================
+    # BINARY SEARCH FONT SIZE
+    # ============================================================
+
+    def _find_best_font(
+        self,
+        draw,
+        text: str,
+        max_width: int,
+        max_height: int,
+        min_size: int,
+        max_size: int,
+    ):
+        """
+        Find the largest font size that fits.
+
+        Uses binary search instead of testing a fixed number
+        of font sizes.
+        """
+
+        best_font = None
+        best_lines = None
+        best_line_height = None
+
+        low = min_size
+        high = max_size
+
+        while low <= high:
+
+            current_size = (low + high) // 2
+
+            logger.debug(
+                f"Binary search font size: {current_size}"
+            )
+
+            try:
+                font = ImageFont.truetype(
+                    self.font_path,
+                    current_size,
+                )
+
+            except OSError:
+                logger.warning(
+                    f"Invalid font path or font size: "
+                    f"{self.font_path}, {current_size}"
+                )
+
+                return None, None, None
+
+            lines = self.wrap_text_pixel(
+                draw,
+                text,
+                font,
+                max_width,
+            )
+
+            fits, line_height = self._check_font_fit(
+                draw,
+                lines,
+                font,
+                max_width,
+                max_height,
+            )
+
+            if fits:
+
+                # This size fits.
+                # Save it and try a larger size.
+                best_font = font
+                best_lines = lines
+                best_line_height = line_height
+
+                low = current_size + 1
+
+            else:
+
+                # Too large.
+                high = current_size - 1
+
+        return (
+            best_font,
+            best_lines,
+            best_line_height,
+        )
+
+    # ============================================================
+    # DRAW TEXT
+    # ============================================================
 
     def draw_text_in_box(
         self,
@@ -44,109 +343,145 @@ class PILCenteredTextRenderer(TextRenderer):
         font_size: int,
     ) -> np.ndarray:
 
-        x1, y1, x2, y2 = box
-        w, h = x2 - x1, y2 - y1
+        if not text or not text.strip():
+            return image
 
+        x1, y1, x2, y2 = box
+
+        w = x2 - x1
+        h = y2 - y1
+
+        # Ignore extremely small boxes
         if w < 20 or h < 20:
             return image
 
-        scale_hw = 0.8
+        # ========================================================
+        # SAFE AREA
+        # ========================================================
+
+        scale_hw = 1.0
+
         target_w = int(w * scale_hw)
         target_h = int(h * scale_hw)
 
         padding_x = (w - target_w) // 2
         padding_y = (h - target_h) // 2
 
+        # ========================================================
+        # PIL IMAGE
+        # ========================================================
+
         pil_img = Image.fromarray(image)
+
         draw = ImageDraw.Draw(pil_img)
 
-        min_font_size = max(6, int(font_size * 0.4))
-        max_font_size = max(min_font_size, int(font_size * 1.0))
+        # ========================================================
+        # FONT RANGE
+        # ========================================================
 
-        best_font = None
-        best_lines = None
-        best_line_height = None
+        min_font_size = 6
 
-        # lưu fallback nhỏ nhất
-        fallback_font = None
-        fallback_lines = None
-        fallback_line_height = None
+        max_font_size = max(
+            min_font_size,
+            int(font_size*1.5),
+        )
 
-        # tạo 6 giá trị từ max -> min
-        font_sizes = np.linspace(max_font_size, min_font_size, 6, dtype=int)
+        # ========================================================
+        # BINARY SEARCH
+        # ========================================================
 
-        # tránh duplicate do ép int
-        font_sizes = sorted(set(font_sizes), reverse=True)
+        (
+            best_font,
+            best_lines,
+            best_line_height,
+        ) = self._find_best_font(
+            draw=draw,
+            text=text,
+            max_width=target_w,
+            max_height=target_h,
+            min_size=min_font_size,
+            max_size=max_font_size,
+        )
 
-        for current_size in font_sizes:
-            logger.debug(f"Trying font size: {current_size} for box: {box}")
+        # ========================================================
+        # FALLBACK
+        # ========================================================
+
+        if best_font is None or not best_lines:
+
+            logger.debug(
+                f"No font size fits box {box}. "
+                f"Using minimum font size: {min_font_size}"
+            )
 
             try:
-                font = ImageFont.truetype(self.font_path, current_size)
+                best_font = ImageFont.truetype(
+                    self.font_path,
+                    min_font_size,
+                )
+
             except OSError:
-                logger.warning("Invalid font path or font size")
+                logger.warning(
+                    f"Cannot load font: {self.font_path}"
+                )
+
                 return image
 
-            # wrap theo pixel
-            lines = self.wrap_text_pixel(draw, text, font, target_w)
+            best_lines = self.wrap_text_pixel(
+                draw,
+                text,
+                best_font,
+                target_w,
+            )
 
-            if not lines:
-                continue
+            if not best_lines:
+                return image
 
-            line_height = int(current_size * 1.3)
+            ascent, descent = best_font.getmetrics()
 
-            # lưu fallback nhỏ nhất
-            fallback_font = font
-            fallback_lines = lines
-            fallback_line_height = line_height
+            best_line_height = (
+                ascent + descent
+            )
 
-            total_h = line_height * len(lines)
+        # ========================================================
+        # TOTAL TEXT HEIGHT
+        # ========================================================
 
-            # check fit chiều dọc
-            if total_h > target_h:
-                continue
+        total_h = (
+            best_line_height
+            * len(best_lines)
+        )
 
-            # check fit chiều ngang
-            fits = True
+        # ========================================================
+        # VERTICAL CENTER
+        # ========================================================
 
-            for line in lines:
-                bbox = draw.textbbox((0, 0), line, font=font)
+        y = (
+            y1
+            + padding_y
+            + (target_h - total_h) // 2
+        )
 
-                line_w = bbox[2] - bbox[0]
-
-                if line_w > target_w:
-                    fits = False
-                    break
-
-            if fits:
-                best_font = font
-                best_lines = lines
-                best_line_height = line_height
-                break
-
-        # nếu không fit được -> dùng size nhỏ nhất
-        if best_font is None:
-            logger.debug(f"No font fits box {box}, using smallest font")
-
-            best_font = fallback_font
-            best_lines = fallback_lines
-            best_line_height = fallback_line_height
-
-        if best_font is None or best_lines is None:
-            return image
-
-        total_h = best_line_height * len(best_lines)
-
-        # căn giữa dọc trong vùng
-        y = y1 + padding_y + (target_h - total_h) // 2
+        # ========================================================
+        # DRAW EACH LINE
+        # ========================================================
 
         for line in best_lines:
-            bbox = draw.textbbox((0, 0), line, font=best_font)
+
+            bbox = draw.textbbox(
+                (0, 0),
+                line,
+                font=best_font,
+            )
 
             line_w = bbox[2] - bbox[0]
 
-            # căn giữa ngang trong vùng
-            x = x1 + padding_x + (target_w - line_w) // 2
+            # Horizontal center
+            x = (
+                x1
+                + padding_x
+                + (target_w - line_w) // 2
+            )
 
             draw.text(
                 (x, y),
@@ -159,5 +494,8 @@ class PILCenteredTextRenderer(TextRenderer):
 
             y += best_line_height
 
-        # PIL RGB -> OpenCV BGR
+        # ========================================================
+        # RETURN
+        # ========================================================
+
         return np.array(pil_img)
