@@ -692,7 +692,7 @@ class MainWindow(QMainWindow):
         self.last_box_chat_text = None
 
         self.backend_status_timer = QTimer(self)
-        self.backend_status_timer.setInterval(10000)
+        self.backend_status_timer.setInterval(3000)
         self.backend_status_timer.timeout.connect(self.check_backend_status)
         self.check_backend_status()
         self.backend_status_timer.start()
