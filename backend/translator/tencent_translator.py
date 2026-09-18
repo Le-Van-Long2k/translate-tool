@@ -205,7 +205,7 @@ class TencentTranslator(ITranslator):
 
         end = time.perf_counter()
 
-        logger.debug(f"Tencent async batch time: {end - start:.3f}s")
+        logger.info(f"Tencent async batch time: {end - start:.3f}s")
 
         return outputs
 

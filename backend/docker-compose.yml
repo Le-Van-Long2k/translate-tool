@@ -26,9 +26,6 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
-      # - ./.venv:/app/.venv
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      - ${HOME}/.Xauthority:/root/.Xauthority:ro
     ports:
       - "8052:8052"
     runtime: nvidia
@@ -38,16 +35,7 @@ services:
       - UV_LINK_MODE=copy
     env_file:
       - .env
-    shm_size: '4gb'
-    # stdin_open: true
-    # tty: true
-    # healthcheck:
-    #   test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8052/health', timeout=2).read()\""]
-    #   interval: 5s
-    #   timeout: 10s
-    #   retries: 30
-    #   start_period: 20s
-    # command: [ "/bin/bash" ]
+    shm_size: '2gb'
 
   turbo-ocr:
     image: ghcr.io/aiptimizer/turboocr:v3.5.0

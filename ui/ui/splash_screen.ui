@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SplashScreen</class>
+
+ <widget class="QWidget" name="SplashScreen">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>450</width>
+    <height>200</height>
+   </rect>
+  </property>
+
+  <property name="minimumSize">
+   <size>
+    <width>450</width>
+    <height>200</height>
+   </size>
+  </property>
+
+  <property name="maximumSize">
+   <size>
+    <width>450</width>
+    <height>200</height>
+   </size>
+  </property>
+
+  <property name="windowTitle">
+   <string>OCR Translator</string>
+  </property>
+
+  <property name="autoFillBackground">
+   <bool>false</bool>
+  </property>
+
+  <property name="styleSheet">
+   <string notr="true">
+
+QWidget#SplashScreen {
+    background: transparent;
+}
+
+QWidget#backgroundWidget {
+    background: transparent;
+    border-image: url(:/icons/splash_background.png) 0 0 0 0 stretch stretch;
+}
+
+QWidget#darkOverlay {
+    background-color: rgba(0, 0, 0, 115);
+}
+
+QWidget#contentWidget {
+    background: transparent;
+}
+
+QLabel {
+    background: transparent;
+}
+
+QLabel#labelTitle {
+    color: #ffffff;
+}
+
+QLabel#labelDescription {
+    color: #e2e8f0;
+}
+
+QLabel#labelStatus {
+    color: #f8fafc;
+}
+
+QLabel#labelVersion {
+    color: #cbd5e1;
+}
+
+QProgressBar#progressBar {
+    background-color: rgba(255, 255, 255, 45);
+    border: none;
+    border-radius: 4px;
+}
+
+QProgressBar#progressBar::chunk {
+    background-color: #60a5fa;
+    border-radius: 4px;
+}
+
+   </string>
+  </property>
+
+  <layout class="QGridLayout" name="gridLayout">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <property name="spacing">
+    <number>0</number>
+   </property>
+
+   <!-- BACKGROUND -->
+   <item row="0" column="0">
+    <widget class="QWidget" name="backgroundWidget">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+    </widget>
+   </item>
+
+   <!-- DARK OVERLAY -->
+   <item row="0" column="0">
+    <widget class="QWidget" name="darkOverlay">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+    </widget>
+   </item>
+
+   <!-- CONTENT -->
+   <item row="0" column="0">
+    <widget class="QWidget" name="contentWidget">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <property name="spacing">
+       <number>6</number>
+      </property>
+
+      <property name="leftMargin">
+       <number>30</number>
+      </property>
+
+      <property name="topMargin">
+       <number>25</number>
+      </property>
+
+      <property name="rightMargin">
+       <number>30</number>
+      </property>
+
+      <property name="bottomMargin">
+       <number>18</number>
+      </property>
+
+      <!-- TITLE -->
+      <item>
+       <widget class="QLabel" name="labelTitle">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+
+        <property name="font">
+         <font>
+          <pointsize>16</pointsize>
+          <bold>true</bold>
+         </font>
+        </property>
+
+        <property name="text">
+         <string>OCR Translator</string>
+        </property>
+
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+
+      <!-- DESCRIPTION -->
+      <item>
+       <widget class="QLabel" name="labelDescription">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+
+        <property name="font">
+         <font>
+          <pointsize>10</pointsize>
+         </font>
+        </property>
+
+        <property name="text">
+         <string>Dịch màn hình • Chat • Truyện</string>
+        </property>
+
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+
+      <!-- SPACE -->
+      <item>
+       <spacer name="verticalSpacer">
+        <property name="orientation">
+         <enum>Qt::Orientation::Vertical</enum>
+        </property>
+
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+
+      <!-- STATUS -->
+      <item>
+       <widget class="QLabel" name="labelStatus">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+
+        <property name="font">
+         <font>
+          <pointsize>10</pointsize>
+         </font>
+        </property>
+
+        <property name="text">
+         <string>Đang khởi động ứng dụng...</string>
+        </property>
+
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+
+      <!-- PROGRESS -->
+      <item>
+       <widget class="QProgressBar" name="progressBar">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>8</height>
+         </size>
+        </property>
+
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>8</height>
+         </size>
+        </property>
+
+        <property name="minimum">
+         <number>0</number>
+        </property>
+
+        <property name="maximum">
+         <number>0</number>
+        </property>
+
+        <property name="value">
+         <number>0</number>
+        </property>
+
+        <property name="textVisible">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+
+      <!-- BOTTOM SPACE -->
+      <item>
+       <spacer name="verticalSpacerBottom">
+        <property name="orientation">
+         <enum>Qt::Orientation::Vertical</enum>
+        </property>
+
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>10</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+
+      <!-- VERSION -->
+      <item>
+       <widget class="QLabel" name="labelVersion">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+
+        <property name="font">
+         <font>
+          <pointsize>8</pointsize>
+         </font>
+        </property>
+
+        <property name="text">
+         <string>Phiên bản 1.0</string>
+        </property>
+
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+
+     </layout>
+    </widget>
+   </item>
+
+  </layout>
+ </widget>
+
+ <resources>
+  <include location="../resources.qrc"/>
+ </resources>
+
+ <connections/>
+</ui>

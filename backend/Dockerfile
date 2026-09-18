@@ -31,11 +31,6 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 
 
-# # install
-# COPY install/ /app/install/
-
-
 EXPOSE 8052
 
-# CMD ["uv", "run", "gradio", "app.py"]
 CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8052"]

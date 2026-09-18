@@ -57,7 +57,13 @@ class GoogleTranslator(ITranslator):
 
             translated_texts = [r.text for r in results]
 
-            logger.debug(
+            for original, translated in zip(texts, translated_texts):
+                logger.info(
+                    "Google Translate: "
+                    f"original={original!r} -> translated={translated!r}"
+                )
+
+            logger.info(
                 f"Google Translate: {len(texts)} texts, {time.perf_counter() - start_time:.2f}s"
             )
 

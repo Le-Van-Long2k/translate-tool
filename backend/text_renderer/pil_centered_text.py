@@ -1,4 +1,5 @@
 import logging
+import time
 import re
 
 import numpy as np
@@ -13,7 +14,7 @@ logger = logging.getLogger("TEXT_RENDERER")
 class PILCenteredTextRenderer(TextRenderer):
     def __init__(
         self,
-        font_path: str = "/usr/share/fonts/truetype/noto/NotoSans-SemiBold.ttf",
+        font_path: str = "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
     ):
         self.font_path = font_path
 
@@ -343,6 +344,7 @@ class PILCenteredTextRenderer(TextRenderer):
         font_size: int,
     ) -> np.ndarray:
 
+        start_time = time.perf_counter()
         if not text or not text.strip():
             return image
 
@@ -497,5 +499,7 @@ class PILCenteredTextRenderer(TextRenderer):
         # ========================================================
         # RETURN
         # ========================================================
+        enslapsed = time.perf_counter() - start_time
+        logger.info(f"[PILCenteredTextRenderer] Drawn text in {enslapsed:.3f}s")
 
         return np.array(pil_img)

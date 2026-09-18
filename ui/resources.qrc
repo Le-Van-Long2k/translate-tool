@@ -1,0 +1,10 @@
+<RCC>
+  <qresource>
+    <file>icons/crop.svg</file>
+    <file>icons/icon_app.png</file>
+    <file>icons/setting.svg</file>
+    <file>icons/splash_background.png</file>
+    <file>icons/start.svg</file>
+    <file>icons/stop.svg</file>
+  </qresource>
+</RCC>

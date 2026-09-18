@@ -1,6 +1,10 @@
 import os
 
+import numpy as np
+import torch
 from PySide6.QtWidgets import QApplication
+
+from backend.bubble_detector.rt_detr_comic_detector import RTDETRComicDetector
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -103,3 +107,32 @@ def test_on_bubble_error_keeps_app_running_and_allows_next_frame(monkeypatch):
     assert window.processing is False
     assert window.previous_image is None
     assert quit_calls["count"] == 0
+
+
+def test_rt_detr_keeps_bubble_and_text_free_only():
+    detector = RTDETRComicDetector()
+    detector.model = object()
+
+    class FakeProcessor:
+        def __call__(self, images, return_tensors):
+            assert return_tensors == "pt"
+            return {"pixel_values": torch.zeros((1, 3, 32, 32))}
+
+        def post_process_object_detection(self, outputs, target_sizes, threshold):
+            assert threshold == 0.5
+            return [{
+                "scores": torch.tensor([0.95, 0.90, 0.85]),
+                "labels": torch.tensor([0, 1, 2]),
+                "boxes": torch.tensor([
+                    [0, 0, 40, 40],
+                    [10, 10, 30, 30],
+                    [20, 20, 80, 80],
+                ], dtype=torch.float32),
+            }]
+
+    detector.processor = FakeProcessor()
+    detector.device = "cpu"
+
+    boxes = detector.detect(np.zeros((120, 120, 3), dtype=np.uint8), conf=0.5)
+
+    assert boxes == [(0, 0, 40, 40), (20, 20, 80, 80)]

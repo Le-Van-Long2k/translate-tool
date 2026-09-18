@@ -2,7 +2,7 @@
 
 venv:
 	rm -rf venv
-	python3 -m venv venv
+	python3.14 -m venv venv
 
 install: venv
 	venv/bin/python -m pip install --upgrade pip
@@ -11,7 +11,10 @@ install: venv
 setup: install
 
 run:
-	venv/bin/python main.py
+	QT_QPA_PLATFORM=xcb venv/bin/python main.py
 
 design:
 	venv/bin/pyside6-designer
+
+convert_resource:
+	venv/bin/pyside6-rcc resources.qrc -o resources_rc.py

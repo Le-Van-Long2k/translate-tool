@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # shutdown
-    unload_models()
+    await unload_models()
 
 
 # =========================
@@ -61,7 +61,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Comic Translator API", lifespan=lifespan)
 
 
-@app.get("/health")
+@app.get("/health_check")
 async def health_check():
     return JSONResponse(
         {
@@ -176,7 +176,17 @@ def ensure_models_loaded():
     load_models()
 
 
-def unload_models():
+async def _close_model(model):
+    if model is None or not hasattr(model, "close"):
+        return
+
+    close_fn = getattr(model, "close")
+    result = close_fn()
+    if asyncio.iscoroutine(result):
+        await result
+
+
+async def unload_models():
     global DETECTOR
     global OCR
     global TRANSLATOR
@@ -186,8 +196,7 @@ def unload_models():
         logger.info("Unloading models...")
         try:
             for model in [DETECTOR, OCR, TRANSLATOR, INPAINTER]:
-                if model is not None and hasattr(model, "close"):
-                    model.close()
+                await _close_model(model)
 
         except Exception:
             logger.exception("Cleanup failed")
@@ -202,9 +211,8 @@ def unload_models():
         logger.info("Models unloaded")
 
 
-def reload_models():
-
-    unload_models()
+async def reload_models():
+    await unload_models()
 
     logger.info("Reloading models...")
 
@@ -220,7 +228,7 @@ async def cleanup():
         raise HTTPException(status_code=429, detail="Server is busy")
 
     async with PROCESS_LOCK:
-        unload_models()
+        await unload_models()
 
         return JSONResponse({"status": "ok", "message": "Memory cleaned"})
 
@@ -232,7 +240,7 @@ async def unload_models_api():
         raise HTTPException(status_code=429, detail="Server is busy")
 
     async with PROCESS_LOCK:
-        unload_models()
+        await unload_models()
 
         return JSONResponse({"status": "ok", "message": "Models unloaded"})
 
@@ -244,7 +252,7 @@ async def reload_models_api():
         raise HTTPException(status_code=429, detail="Server is busy")
 
     async with PROCESS_LOCK:
-        unload_models()
+        await unload_models()
 
         load_models()
 
@@ -291,7 +299,7 @@ async def set_config(cfg: ConfigModel):
             changed = True
 
         if changed:
-            reload_models()
+            await reload_models()
 
         return JSONResponse({"status": "ok", "config": CONFIG.model_dump()})
 
@@ -670,7 +678,7 @@ async def translate_comic(
 
         total = time.perf_counter() - start_time
 
-        logger.debug(f"Done in {total:.2f}s")
+        logger.info(f"Done in {total:.2f}s")
 
         success, buf = cv2.imencode(".png", final_img)
 

@@ -1,12 +1,18 @@
 run_with_google_translate:
 	cp -f .env.example .env
 	sed -i 's/^TRANSLATE_MODEL=.*/TRANSLATE_MODEL=google_translator/' .env
-	docker compose up -d --build turbo-ocr translator-backend
+	docker compose up -d turbo-ocr translator-backend
+
+run_with_facebook_nllb_translate:
+	cp -f .env.example .env
+	sed -i 's/^TRANSLATE_MODEL=.*/TRANSLATE_MODEL=facebook_nllb_translator/' .env
+	docker compose up -d turbo-ocr translator-backend
+
 
 run_with_ai:
 	cp -f .env.example .env
 	sed -i 's/^TRANSLATE_MODEL=.*/TRANSLATE_MODEL=hy-mt/' .env
-	docker compose up -d --build
+	docker compose start llama-server turbo-ocr translator-backend
 
 stop:
 	docker compose stop 

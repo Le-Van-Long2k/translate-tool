@@ -63,6 +63,7 @@ frontend/yarn-error.log*
 #ui
 ui/venv
 ui/__pycache__
+ui/.*
 
 # =========================
 # Env files (IMPORTANT)

@@ -116,7 +116,7 @@ class TurboOCREngine(OCREngine):
 
         end_time = time.perf_counter()
 
-        logger.debug(f"[TurboOCR] Batch {len(images)} images in {end_time - start_time:.3f}s")
+        logger.info(f"[TurboOCR] Batch {len(images)} images in {end_time - start_time:.3f}s")
 
         return outputs
 

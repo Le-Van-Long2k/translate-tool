@@ -2,7 +2,10 @@ import numpy as np
 import cv2
 
 from inpainting.inpainter import Inpainter
+import time
+import logging
 
+logger = logging.getLogger("OpencvInpaintor")
 
 class OpencvInpaintor(Inpainter):
     def __init__(self):
@@ -83,6 +86,7 @@ class OpencvInpaintor(Inpainter):
         provided inside `ocr_results` (each item should be a dict with key 'boxes').
         Behavior follows `LamaInpaintor.inpaint_from_boxes` but uses OpenCV inpainting.
         """
+        start_time = time.perf_counter()
 
         image = np.asarray(image, dtype=np.uint8)
 
@@ -129,4 +133,6 @@ class OpencvInpaintor(Inpainter):
 
             output[y1:y2, x1:x2] = inpainted_crop
 
+        elapsed = time.perf_counter() - start_time
+        logger.info(f"[OpencvInpaintor] Inpainted in {elapsed:.3f}s")
         return output
