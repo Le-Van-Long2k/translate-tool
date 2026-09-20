@@ -1,14 +1,81 @@
+import threading
+
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QApplication, QSizePolicy, QWidget
 
 from controller.MainWindow_controller import MainWindowController
 from ui.ui_MainWindow import Ui_Form
 from ui.ui_box_chat_popup import Ui_box_chat_translate_form
+from utils.backend_url import (
+    build_backend_url,
+    normalize_backend_host,
+    normalize_backend_url,
+    resolve_backend_base_url,
+)
+
+
+def test_backend_url_normalization_uses_single_canonical_host():
+    assert normalize_backend_host("localhost") == "127.0.0.1"
+    assert normalize_backend_host("127.0.0.0") == "127.0.0.1"
+    assert normalize_backend_host("http://127.0.0.0:8052") == "127.0.0.1"
+    assert normalize_backend_url("http://localhost:8052/health_check") == "http://127.0.0.1:8052/health_check"
+    assert normalize_backend_url("http://127.0.0.0:8052/health_check") == "http://127.0.0.1:8052/health_check"
+    assert build_backend_url("/health_check") == "http://127.0.0.1:8052/health_check"
+    assert build_backend_url("translate_one_box_chat") == "http://127.0.0.1:8052/translate_one_box_chat"
+
+
+def test_backend_url_uses_first_working_localhost_candidate():
+    attempts = []
+
+    def fake_get(url, timeout):
+        attempts.append(url)
+        if url == "http://127.0.0.1:8052/health_check":
+            raise ConnectionError("down")
+        if url == "http://localhost:8052/health_check":
+            class _Response:
+                status_code = 200
+                headers = {"Content-Type": "application/json"}
+
+                def json(self):
+                    return {"status": "ok"}
+
+            return _Response()
+        raise AssertionError(f"unexpected url: {url}")
+
+    assert resolve_backend_base_url(request_getter=fake_get) == "http://localhost:8052"
+    assert attempts == [
+        "http://127.0.0.1:8052/health_check",
+        "http://localhost:8052/health_check",
+    ]
 
 
 def test_backend_health_payload_ok():
     payload = {"status": "ok", "models_loaded": True}
     assert MainWindowController.is_backend_healthy_payload(payload) is True
+
+
+def test_main_window_starts_docker_in_background_thread(monkeypatch):
+    app = QApplication.instance() or QApplication([])
+    thread_names = []
+
+    class DummyDocker:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def start(self, callback=None, finished_callback=None):
+            thread_names.append(threading.current_thread().name)
+            return 0
+
+        def stop_sync(self, callback=None):
+            return 0
+
+        def shutdown_wsl(self, callback=None):
+            return 0
+
+    monkeypatch.setattr("controller.MainWindow_controller.DockerManager", DummyDocker)
+    MainWindowController()
+
+    assert thread_names and thread_names[0] != "MainThread"
 
 
 def test_backend_health_payload_not_ok():

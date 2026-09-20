@@ -5,6 +5,7 @@ from PySide6.QtCore import QBuffer, QIODevice, QByteArray, QPoint, QRect, Qt, QT
 from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
 from utils.ScreenSelector import ScreenSelector
+from utils.backend_url import build_backend_url
 from ui.ui_box_chat_popup import Ui_box_chat_translate_form
 
 
@@ -30,7 +31,7 @@ class BoxChatOCRWorker(QThread):
 
             files = {"file": ("box_chat_ocr.png", byte_array.data(), "image/png")}
             response = requests.post(
-                "http://127.0.0.1:8052/translate_one_box_chat",
+                build_backend_url("translate_one_box_chat"),
                 files=files,
                 timeout=30,
             )

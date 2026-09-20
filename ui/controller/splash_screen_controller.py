@@ -6,6 +6,7 @@ from PySide6.QtCore import QThread, QTimer, Qt, Signal
 from PySide6.QtWidgets import QApplication, QWidget
 
 from ui.ui_splash_screen import Ui_SplashScreen
+from utils.backend_url import build_backend_url
 
 
 class BackendHealthWorker(QThread):
@@ -21,7 +22,7 @@ class BackendHealthWorker(QThread):
         try:
             response = requests.get(
                 self.backend_url,
-                timeout=1.5,
+                timeout=5,
             )
 
             response.raise_for_status()
@@ -59,12 +60,12 @@ class SplashScreenController(QWidget):
     def __init__(
         self,
         main_window=None,
-        backend_url="http://127.0.0.1:8052/health_check",
+        backend_url=None,
     ):
         super().__init__()
 
         self.main_window = main_window
-        self.backend_url = backend_url
+        self.backend_url = backend_url or build_backend_url("health_check")
 
         self.ui = Ui_SplashScreen()
         self.ui.setupUi(self)
@@ -142,8 +143,8 @@ class SplashScreenController(QWidget):
     def _start_backend_check(self):
         self._status_timer = QTimer(self)
 
-        # Check every 1.5 seconds
-        self._status_timer.setInterval(1500)
+        # Check every 1 second in splash screen
+        self._status_timer.setInterval(1000)
 
         self._status_timer.timeout.connect(
             self._check_backend_status

@@ -21,7 +21,7 @@ class DockerManager:
 
     Makefile targets:
 
-        make run_with_ai
+        make run_with_libretranslate
         make stop
     """
 
@@ -48,7 +48,7 @@ class DockerManager:
         Example:
 
             wsl.exe -d Ubuntu-22.04 bash -lc \
-                "cd /mnt/c/Users/PC/translate-tool/backend && make run_with_ai"
+                "cd /mnt/c/Users/PC/translate-tool/backend && make run_with_libretranslate"
         """
 
         process = subprocess.Popen(
@@ -114,7 +114,7 @@ class DockerManager:
         Example:
 
             cd /mnt/c/Users/PC/translate-tool/backend &&
-            make start_with_ai
+            make run_with_libretranslate
         """
 
         return (
@@ -132,16 +132,11 @@ class DockerManager:
         finished_callback: Optional[Callable[[int], None]] = None,
     ):
         """
-        Start Docker services.
-
-        Equivalent to:
-
-            cd /mnt/c/Users/PC/translate-tool/backend
-            make run_with_ai
+        Start Docker services in a background thread so the Qt splash screen
+        and main window remain responsive while containers bootstrap.
         """
 
-        command = self._make_command("run_with_ai")
-
+        command = self._make_command("run_with_libretranslate")
         return self._run_async(
             command,
             callback=callback,
@@ -197,6 +192,33 @@ class DockerManager:
             callback=callback,
         )
 
+    def shutdown_wsl(self, callback: Optional[Callable[[str], None]] = None) -> int:
+        """
+        Shut down the WSL VM completely.
+
+        Equivalent to:
+
+            wsl.exe --shutdown
+        """
+
+        process = subprocess.Popen(
+            ["wsl.exe", "--shutdown"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        )
+
+        if process.stdout:
+            for line in process.stdout:
+                line = line.rstrip()
+                if callback:
+                    callback(line)
+
+        return process.wait()
+
     # ---------------------------------------------------------
     # Restart
     # ---------------------------------------------------------
@@ -212,7 +234,7 @@ class DockerManager:
         Sequence:
 
             make stop
-            make start_with_ai
+            make run_with_libretranslate
         """
 
         def worker():
@@ -229,7 +251,7 @@ class DockerManager:
 
             # Start again
             start_code = self._run_wsl(
-                self._make_command("start_with_ai"),
+                self._make_command("run_with_libretranslate"),
                 callback=callback,
             )
 

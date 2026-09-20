@@ -1,0 +1,39 @@
+.git
+.gitignore
+.vscode
+.devcontainer
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.log
+logs/
+.env
+.env.*
+.venv/
+venv/
+.idea/
+.DS_Store
+
+# Local caches and generated artifacts
+cache/
+caches/
+turboocr-cache/
+translator/models/
+translator/__pycache__/
+
+# Editor / OS junk
+*.swp
+*.swo
+*.tmp
+*.bak
+
+# Test / debug artifacts
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Large or unnecessary directories
+node_modules/
+build/
+dist/

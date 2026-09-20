@@ -14,8 +14,21 @@ run_with_ai:
 	sed -i 's/^TRANSLATE_MODEL=.*/TRANSLATE_MODEL=hy-mt/' .env
 	docker compose start llama-server turbo-ocr translator-backend
 
+run_with_mymemory_translator:
+	cp -f .env.example .env || exit 1
+	sed -i "s/^TRANSLATE_MODEL=.*/TRANSLATE_MODEL=mymemory_translator/" .env
+	docker compose up -d turbo-ocr libretranslate translator-backend
+
+run_with_libretranslate:
+	cp -f .env.example .env || exit 1
+	sed -i "s/^TRANSLATE_MODEL=.*/TRANSLATE_MODEL=libretranslate_translator/" .env
+	docker compose up -d turbo-ocr libretranslate translator-backend
+
+
 stop:
-	docker compose stop 
+	docker compose stop translator-backend
+	docker compose stop turbo-ocr
+	docker compose stop libretranslate
 
 run_backend:
 	docker exec -it translator-backend bash run-backend.sh

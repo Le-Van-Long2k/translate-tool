@@ -8,6 +8,12 @@ from controller.box_chat_controller import BoxChatModeController
 from controller.comic_controller import ComicModeController
 from controller.screen_controller import ScreenModeController
 from ui.ui_MainWindow import Ui_Form
+from utils.backend_url import (
+    DEFAULT_BACKEND_PORT,
+    LOCALHOST_BACKEND_HOSTS,
+    build_backend_url,
+    update_backend_host,
+)
 
 from services.docker_manager import DockerManager
 
@@ -23,6 +29,8 @@ class MainWindowController(QWidget):
 
         self.is_running = False
         self.backend_is_running = False
+        self.backend_host_index = 0
+        self.backend_host = LOCALHOST_BACKEND_HOSTS[self.backend_host_index]
         self._closing = False
         self._closing_dialog = None
         self.popup_map = {
@@ -32,11 +40,7 @@ class MainWindowController(QWidget):
         }
         self.docker = DockerManager(project_dir="/mnt/c/Users/PC/translate-tool/backend")
 
-        self.docker.stop_sync(
-            callback=lambda line: print(line)
-        )
-
-        self.docker.start(
+        self._docker_start_thread = self.docker.start(
             callback=lambda line: print(line),
             finished_callback=lambda code: print("Docker start finished:", code),
         )
@@ -96,6 +100,16 @@ class MainWindowController(QWidget):
                 callback=lambda line: print(line)
             )
             print("Docker stop finished:", return_code)
+        except Exception as exc:
+            print("Docker stop failed:", exc)
+
+        try:
+            shutdown_code = self.docker.shutdown_wsl(
+                callback=lambda line: print(line)
+            )
+            print("WSL shutdown finished:", shutdown_code)
+        except Exception as exc:
+            print("WSL shutdown unavailable:", exc)
         finally:
             if self._closing_dialog is not None:
                 self._closing_dialog.close()
@@ -106,8 +120,6 @@ class MainWindowController(QWidget):
         
     @staticmethod
     def is_backend_healthy_payload(payload):
-        if not isinstance(payload, dict):
-            return False
         if payload.get("status") == "ok":
             return True
         return False
@@ -139,15 +151,27 @@ class MainWindowController(QWidget):
             self.refresh_mode_button_state()
 
     def check_backend_status(self):
+        host = self.backend_host
+        health_url = f"http://{host}:{DEFAULT_BACKEND_PORT}/health_check"
+
         try:
-            response = requests.get("http://127.0.0.1:8052/health_check", timeout=2)
+            response = requests.get(health_url, timeout=5)
             response.raise_for_status()
             content_type = response.headers.get("Content-Type", "")
             payload = response.json() if "application/json" in content_type.lower() else {}
         except Exception:
             payload = {}
 
-        self._set_backend_status(self.is_backend_healthy_payload(payload))
+        if self.is_backend_healthy_payload(payload):
+            update_backend_host(host)
+            self.backend_host = host
+            self._set_backend_status(True)
+            return
+
+        next_index = (self.backend_host_index + 1) % len(LOCALHOST_BACKEND_HOSTS)
+        self.backend_host_index = next_index
+        self.backend_host = LOCALHOST_BACKEND_HOSTS[next_index]
+        self._set_backend_status(False)
 
     def refresh_mode_button_state(self):
         mode_name = self.ui.comboBox_mode.currentText()

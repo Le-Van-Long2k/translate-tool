@@ -1,22 +1,23 @@
 services:
-  llama-server:
-    # check images at https://github.com/ggml-org/llama.cpp/blob/master/docs/docker.md
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
-    container_name: llama-server
-    ports:
-      - "8121:8080"
-    volumes:
-      - ./translator/models:/models
-    gpus: all
-    env_file:
-      - .env
-    command: >
-      --model /models/${LLAMA_MODEL}
-      --host ${LLAMA_HOST}
-      --port ${LLAMA_PORT}
-      --n-gpu-layers ${LLAMA_GPU_LAYERS}
-      --ctx-size ${LLAMA_CTX_SIZE}
-      --flash-attn on
+  # llama-server:
+  #   # check images at https://github.com/ggml-org/llama.cpp/blob/master/docs/docker.md
+  #   image: ghcr.io/ggml-org/llama.cpp:server-cuda
+  #   container_name: llama-server
+  #   ports:
+  #     - "8121:8080"
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./translator/models:/models
+  #   gpus: all
+  #   env_file:
+  #     - .env
+  #   command: >
+  #     --model /models/${LLAMA_MODEL}
+  #     --host ${LLAMA_HOST}
+  #     --port ${LLAMA_PORT}
+  #     --n-gpu-layers ${LLAMA_GPU_LAYERS}
+  #     --ctx-size ${LLAMA_CTX_SIZE}
+  #     --flash-attn on
 
   translator-backend:
     container_name: translator-backend
@@ -36,6 +37,7 @@ services:
     env_file:
       - .env
     shm_size: '2gb'
+    restart: unless-stopped
 
   turbo-ocr:
     image: ghcr.io/aiptimizer/turboocr:v3.5.0
@@ -70,3 +72,19 @@ services:
     restart: unless-stopped
     volumes:
       - ./turboocr-cache:/home/ocr/.cache/turbo-ocr
+
+  libretranslate:
+    container_name: libretranslate
+    image: libretranslate/libretranslate:v1.9.6
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    command:
+      - "--load-only"
+      - "en,ja,ko,zh,vi"
+    healthcheck:
+      test: ["CMD-SHELL", "./venv/bin/python scripts/healthcheck.py"]
+      interval: 10s
+      timeout: 4s
+      retries: 4
+      start_period: 5s

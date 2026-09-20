@@ -6,9 +6,8 @@ class SourceLang(str, Enum):
     zh = "Chinese"
     ja = "Japanese"
     ko = "Korean"
-    auto = "Auto"
+    auto = "auto"
 
 
 class TargetLang(str, Enum):
     vi = "Vietnamese"
-    auto = "Auto"

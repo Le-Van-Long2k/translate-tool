@@ -40,8 +40,8 @@ class GoogleTranslator(ITranslator):
             return []
 
         start_time = time.perf_counter()
-        from_lang = LANG_MAP.get(SourceLang(from_lang), from_lang)
-        to_lang = LANG_MAP.get(TargetLang(to_lang), to_lang)
+        from_lang = "auto"
+        to_lang = "vi"
 
         try:
             translator = await self._get_translator()
@@ -71,6 +71,7 @@ class GoogleTranslator(ITranslator):
 
         except Exception:
             logger.exception("Google Translate failed")
+            print(f"Google Translate failed, returning original texts")
             return texts
 
     async def close(self):

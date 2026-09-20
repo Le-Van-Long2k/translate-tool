@@ -6,6 +6,7 @@ from PySide6.QtGui import QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QFileDialog, QGraphicsScene, QMessageBox, QWidget
 
 from ui.ui_comic_popup import Ui_form_comic
+from utils.backend_url import build_backend_url
 
 
 class DownloadComicWorker(QThread):
@@ -65,7 +66,7 @@ class ComicSelectionWorker(QThread):
                         image_bytes = image_file.read()
 
                     response = requests.post(
-                        "http://127.0.0.1:8052/translate_comic",
+                        build_backend_url("translate_comic"),
                         files={"file": (filename, image_bytes, "application/octet-stream")},
                         timeout=300,
                     )
@@ -263,11 +264,22 @@ class ComicModeController(QWidget):
         if not paths:
             return
 
-        self._selected_paths = paths
+        self._selected_paths = []
         self._translated_entries = []
         self._translated_images = []
         self._navigation_images = []
         self._navigation_index = -1
+        self._current_image = None
+        self.graphics_scene.clear()
+
+        for image in self._translated_images:
+            del image
+        for image in self._navigation_images:
+            del image
+        self._translated_images = []
+        self._navigation_images = []
+
+        self._selected_paths = paths
         self.popup.setWindowTitle(f"Dịch truyện tranh ({len(paths)} ảnh)")
         self._update_status_label(f"Đang xử lý 0/{len(paths)}")
         self.set_download_state(True, 0, len(paths))
@@ -281,6 +293,16 @@ class ComicModeController(QWidget):
     def process_comic_selection(self, paths):
         self._translated_entries = []
         self._translated_images = []
+        self._navigation_images = []
+        self._navigation_index = -1
+        self._current_image = None
+        self.graphics_scene.clear()
+
+        for image in self._translated_images:
+            del image
+        for image in self._navigation_images:
+            del image
+
         self.set_download_state(True, 0, len(paths))
         self._update_status_label(f"Đang xử lý 0/{len(paths)}")
 
