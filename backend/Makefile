@@ -23,6 +23,7 @@ run_with_libretranslate:
 	cp -f .env.example .env || exit 1
 	sed -i "s/^TRANSLATE_MODEL=.*/TRANSLATE_MODEL=libretranslate_translator/" .env
 	docker compose up -d turbo-ocr libretranslate translator-backend
+	bash run-backend.sh &
 
 
 stop:

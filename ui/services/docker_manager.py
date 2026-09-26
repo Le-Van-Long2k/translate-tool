@@ -66,6 +66,7 @@ class DockerManager:
             encoding="utf-8",
             errors="replace",
             bufsize=1,
+            start_new_session=True,
         )
 
         if process.stdout:

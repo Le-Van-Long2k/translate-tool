@@ -25,6 +25,8 @@ services:
     depends_on:
       turbo-ocr:
         condition: service_healthy
+      libretranslate:
+        condition: service_healthy
     volumes:
       - .:/app
     ports:
@@ -79,6 +81,8 @@ services:
     ports:
       - "5000:5000"
     restart: unless-stopped
+    runtime: nvidia
+    gpus: all
     command:
       - "--load-only"
       - "en,ja,ko,zh,vi"

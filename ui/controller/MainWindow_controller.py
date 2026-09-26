@@ -15,8 +15,6 @@ from utils.backend_url import (
     update_backend_host,
 )
 
-from services.docker_manager import DockerManager
-
 class MainWindowController(QWidget):
     """Main window controller for choosing a translate mode."""
 
@@ -38,13 +36,6 @@ class MainWindowController(QWidget):
             "Dịch chat game": BoxChatModeController(self),
             "Dịch truyện tranh": ComicModeController(self),
         }
-        self.docker = DockerManager(project_dir="/mnt/c/Users/PC/translate-tool/backend")
-
-        self._docker_start_thread = self.docker.start(
-            callback=lambda line: print(line),
-            finished_callback=lambda code: print("Docker start finished:", code),
-        )
-
         self.ui.comboBox_mode.currentIndexChanged.connect(self.on_mode_changed)
 
         self.backend_status_timer = QTimer(self)
@@ -61,25 +52,28 @@ class MainWindowController(QWidget):
                 return
             self._closing_dialog.deleteLater()
 
-        self._closing_dialog = QProgressDialog(
-            "Đang đóng ứng dụng...",
-            "",
-            0,
-            0,
-            self,
-        )
-        self._closing_dialog.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
-        self._closing_dialog.setWindowFlag(Qt.WindowType.Tool, True)
-        self._closing_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
-        self._closing_dialog.setAutoClose(False)
-        self._closing_dialog.setAutoReset(False)
-        self._closing_dialog.setCancelButton(None)
-        self._closing_dialog.setMinimumDuration(0)
-        self._closing_dialog.setValue(0)
-        self._closing_dialog.show()
-        self._closing_dialog.raise_()
-        self._closing_dialog.activateWindow()
-        QApplication.processEvents()
+        try:
+            self._closing_dialog = QProgressDialog(
+                "Đang đóng ứng dụng...",
+                "",
+                0,
+                0,
+                self,
+            )
+            self._closing_dialog.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
+            self._closing_dialog.setWindowFlag(Qt.WindowType.Tool, True)
+            self._closing_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
+            self._closing_dialog.setAutoClose(False)
+            self._closing_dialog.setAutoReset(False)
+            self._closing_dialog.setCancelButton(None)
+            self._closing_dialog.setMinimumDuration(0)
+            self._closing_dialog.setValue(0)
+            self._closing_dialog.show()
+            self._closing_dialog.raise_()
+            self._closing_dialog.activateWindow()
+            QApplication.processEvents()
+        except RuntimeError:
+            self._closing_dialog = None
 
     def closeEvent(self, event):
         print("Closing application...")
@@ -90,31 +84,16 @@ class MainWindowController(QWidget):
 
         self._closing = True
 
-        if self.backend_status_timer.isActive():
-            self.backend_status_timer.stop()
+        backend_status_timer = getattr(self, "backend_status_timer", None)
+        if backend_status_timer is not None and backend_status_timer.isActive():
+            backend_status_timer.stop()
 
         self._show_closing_dialog()
 
-        try:
-            return_code = self.docker.stop_sync(
-                callback=lambda line: print(line)
-            )
-            print("Docker stop finished:", return_code)
-        except Exception as exc:
-            print("Docker stop failed:", exc)
-
-        try:
-            shutdown_code = self.docker.shutdown_wsl(
-                callback=lambda line: print(line)
-            )
-            print("WSL shutdown finished:", shutdown_code)
-        except Exception as exc:
-            print("WSL shutdown unavailable:", exc)
-        finally:
-            if self._closing_dialog is not None:
-                self._closing_dialog.close()
-                self._closing_dialog.deleteLater()
-                self._closing_dialog = None
+        if self._closing_dialog is not None:
+            self._closing_dialog.close()
+            self._closing_dialog.deleteLater()
+            self._closing_dialog = None
 
         event.accept()
         
@@ -145,7 +124,7 @@ class MainWindowController(QWidget):
 
         if not is_running:
             self.reset_to_default_mode()
-            for popup in self.popup_map.values():
+            for popup in getattr(self, "popup_map", {}).values():
                 popup.hide()
         else:
             self.refresh_mode_button_state()
@@ -184,7 +163,7 @@ class MainWindowController(QWidget):
         self.ui.comboBox_mode.blockSignals(False)
         self.refresh_mode_button_state()
 
-        for popup in self.popup_map.values():
+        for popup in getattr(self, "popup_map", {}).values():
             popup.hide()
 
     def on_mode_changed(self, index):

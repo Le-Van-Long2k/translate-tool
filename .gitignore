@@ -4,76 +4,110 @@
 .DS_Store
 Thumbs.db
 .idea/
+.vscode/
 
 # =========================
-# Python (backend)
+# Python cache / bytecode
 # =========================
-backend/__pycache__/
-backend/**/__pycache__/
-backend/**/*.pyc
-backend/**/*.pyo
-backend/**/*.pyd
-
-backend/.venv/
-backend/venv/
-backend/env/
-
-backend/.python-version
-
-backend/.pytest_cache/
-backend/.mypy_cache/
-
-backend/*.log
-
-# build / dist
-backend/build/
-backend/dist/
-backend/*.egg-info/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pyre/
+*.pyc
 
 # =========================
-# Model / AI artifacts (optional - nếu nặng)
+# Virtual environments
 # =========================
-backend/**/*.pt
-backend/**/*.pth
-backend/**/*.onnx
-backend/**/*.engine
+.venv/
+venv/
+env/
+ENV/
+**/.venv/
+**/venv/
+**/env/
 
-backend/bubble_detector/comic.engine
-backend/translator/nllb-600M-ct2-float16/
-backend/translated_output/
-backend/translator/translate_models/**
-backend/translator/models/**
-backend/logs/**
-backend/turboocr-cache/**
-backend/*.deb
+# =========================
+# Test / coverage artifacts
+# =========================
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+coverage/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+pytest.xml
+
+# =========================
+# Build / packaging
+# =========================
+build/
+dist/
+*.egg-info/
+*.egg
+site/
+
+# =========================
+# Logs / cache / temp files
+# =========================
+*.log
+logs/
+log/
+cache/
+cached/
+**/cache/
+**/cached/
+*.cache
+tmp/
+temp/
+*.tmp
+*.swp
+
+# =========================
+# Local env files
+# =========================
+.env
+.env.*
 backend/.env
+frontend/.env
+
 # =========================
-# Node (frontend)
+# Node / frontend
 # =========================
 frontend/node_modules/
 frontend/.next/
 frontend/dist/
 frontend/build/
-
-# logs
 frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
 
-#ui
-ui/venv
-ui/__pycache__
+# =========================
+# Project-specific generated artifacts
+# =========================
+backend/*.deb
+backend/*.log
+backend/logs/**
+backend/turboocr-cache/**
+backend/translated_output/
+backend/translator/models/**
+backend/translator/translate_models/**
+backend/translator/nllb-600M-ct2-float16/
+backend/bubble_detector/comic.engine
+backend/**/*.pt
+backend/**/*.pth
+backend/**/*.onnx
+backend/**/*.engine
+backend/.python-version
+
+# =========================
+# UI local deps
+# =========================
+ui/venv/
+ui/__pycache__/
 ui/.*
-
-# =========================
-# Env files (IMPORTANT)
-# =========================
-.env
-backend/.env
-frontend/.env
-
-# =========================
-# Misc
-# =========================
-*.swp
-*.tmp

@@ -54,28 +54,12 @@ def test_backend_health_payload_ok():
     assert MainWindowController.is_backend_healthy_payload(payload) is True
 
 
-def test_main_window_starts_docker_in_background_thread(monkeypatch):
+def test_main_window_does_not_start_docker_in_background_thread():
     app = QApplication.instance() or QApplication([])
-    thread_names = []
+    controller = MainWindowController()
 
-    class DummyDocker:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def start(self, callback=None, finished_callback=None):
-            thread_names.append(threading.current_thread().name)
-            return 0
-
-        def stop_sync(self, callback=None):
-            return 0
-
-        def shutdown_wsl(self, callback=None):
-            return 0
-
-    monkeypatch.setattr("controller.MainWindow_controller.DockerManager", DummyDocker)
-    MainWindowController()
-
-    assert thread_names and thread_names[0] != "MainThread"
+    assert not hasattr(controller, "docker")
+    assert not hasattr(controller, "_docker_start_thread")
 
 
 def test_backend_health_payload_not_ok():
@@ -152,4 +136,33 @@ def test_close_event_shows_busy_closing_dialog():
 
     assert controller._closing is True
     assert controller._closing_dialog is None
+    assert event.isAccepted() is True
+
+
+def test_close_event_does_not_stop_backend_services():
+    app = QApplication.instance() or QApplication([])
+
+    controller = MainWindowController.__new__(MainWindowController)
+    controller.ui = Ui_Form()
+    controller.ui.setupUi(QWidget())
+
+    calls = []
+
+    class DummyDocker:
+        def stop_sync(self, callback=None):
+            calls.append("stop")
+            return 0
+
+        def shutdown_wsl(self, callback=None):
+            calls.append("shutdown")
+            return 0
+
+    controller.docker = DummyDocker()
+    controller._closing_dialog = None
+    controller._closing = False
+
+    event = QCloseEvent()
+    controller.closeEvent(event)
+
+    assert calls == []
     assert event.isAccepted() is True

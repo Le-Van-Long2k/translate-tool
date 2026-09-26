@@ -61,7 +61,7 @@ class BoxChatModeController(QWidget):
         self._last_box_chat_text = ""
         self._ocr_worker = None
         self._refresh_timer = QTimer(self)
-        self._refresh_timer.setInterval(5000)
+        self._refresh_timer.setInterval(1000)
         self._refresh_timer.timeout.connect(self._refresh_box_chat_region)
 
         self.popup = QWidget()
@@ -133,10 +133,12 @@ class BoxChatModeController(QWidget):
 
         image = self._capture_selected_region()
         if image is None or image.isNull() or image.width() <= 1 or image.height() <= 1:
-            self.ui.result_label.setText("Lỗi OCR: không capture được màn hình")
+            self._last_box_chat_text = ""
+            self.ui.result_label.setText("")
             return
 
-        self.ui.result_label.setText("Đang dịch...")
+        # Không hiển thị trạng thái "Đang dịch..." trong mode box chat.
+        # Giữ text cũ đang hiển thị nếu đang chờ OCR mới.
         self._start_box_chat_ocr(image)
 
     def start_box_chat_selection(self):
@@ -150,18 +152,13 @@ class BoxChatModeController(QWidget):
     def _on_box_chat_region_selected(self, rect, image):
         self._selected_ocr_rect = rect
         if image is None or image.isNull() or image.width() <= 1 or image.height() <= 1:
-            self.ui.result_label.setText("Lỗi OCR: không capture được màn hình")
-            QMessageBox.warning(
-                self,
-                "Lỗi capture",
-                "Không thể capture vùng màn hình. Vui lòng thử lại.",
-            )
+            self._last_box_chat_text = ""
+            self.ui.result_label.setText("")
             self._refresh_timer.stop()
             return
 
-        self.ui.result_label.setText("Đang dịch...")
         self._start_box_chat_ocr(image)
-        self._refresh_timer.start(5000)
+        self._refresh_timer.start(1000)
 
     def _start_box_chat_ocr(self, image):
         if self._ocr_worker is not None and self._ocr_worker.isRunning():
@@ -178,28 +175,18 @@ class BoxChatModeController(QWidget):
                 self._ocr_worker = None
         finally:
             if text:
-                self._last_box_chat_text = text
-                self.ui.result_label.setText(text)
+                text = str(text).strip()
+                if text and text != self._last_box_chat_text:
+                    self._last_box_chat_text = text
+                    self.ui.result_label.setText(text)
+            else:
+                # Giữ text cũ nếu backend không trả về kết quả mới
+                pass
 
     def _on_box_chat_ocr_error(self, error_message):
         try:
             if self._ocr_worker is not None and self._ocr_worker.isFinished():
                 self._ocr_worker = None
         finally:
-            message = str(error_message or "")
-            lowered = message.lower()
-
-            if "screen capture image is empty" in lowered or "capture" in lowered:
-                self.ui.result_label.setText("Lỗi OCR: không capture được màn hình")
-            elif "empty" in lowered or "rỗng" in lowered:
-                self.ui.result_label.setText("Lỗi OCR: backend trả về dữ liệu rỗng")
-            elif "timeout" in lowered or "read timed out" in lowered:
-                self.ui.result_label.setText("Lỗi: thời gian chờ OCR đã hết")
-            else:
-                self.ui.result_label.setText("Lỗi OCR: không thể dịch vùng đang chọn")
-
-            QMessageBox.warning(
-                self,
-                "Lỗi OCR",
-                "Không thể dịch vùng đang chọn. Vui lòng thử lại.",
-            )
+            # Giữ text cũ nếu OCR/backend lỗi, chỉ thay đổi khi có dữ liệu mới hợp lệ
+            pass
