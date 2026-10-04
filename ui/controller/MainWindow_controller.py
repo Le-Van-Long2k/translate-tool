@@ -1,4 +1,5 @@
 import io
+import threading
 
 import requests
 from PySide6.QtCore import Qt, QTimer
@@ -9,9 +10,8 @@ from controller.comic_controller import ComicModeController
 from controller.screen_controller import ScreenModeController
 from ui.ui_MainWindow import Ui_Form
 from utils.backend_url import (
+    DEFAULT_BACKEND_HOST,
     DEFAULT_BACKEND_PORT,
-    LOCALHOST_BACKEND_HOSTS,
-    build_backend_url,
     update_backend_host,
 )
 
@@ -27,8 +27,8 @@ class MainWindowController(QWidget):
 
         self.is_running = False
         self.backend_is_running = False
-        self.backend_host_index = 0
-        self.backend_host = LOCALHOST_BACKEND_HOSTS[self.backend_host_index]
+        self.backend_available_event = threading.Event()
+        self.backend_host = DEFAULT_BACKEND_HOST
         self._closing = False
         self._closing_dialog = None
         self.popup_map = {
@@ -105,6 +105,10 @@ class MainWindowController(QWidget):
 
     def _set_backend_status(self, is_running):
         self.backend_is_running = is_running
+        if is_running:
+            self.backend_available_event.set()
+        else:
+            self.backend_available_event.clear()
         color = "#22c55e" if is_running else "#dc2626"
         dot_text = "●"
         status_text = "Backend đang chạy" if is_running else "Backend không hoạt động"
@@ -122,11 +126,7 @@ class MainWindowController(QWidget):
         self.ui.comboBox_translate_engine.setEnabled(is_running)
         self.ui.comboBox_mode.setEnabled(is_running)
 
-        if not is_running:
-            self.reset_to_default_mode()
-            for popup in getattr(self, "popup_map", {}).values():
-                popup.hide()
-        else:
+        if is_running:
             self.refresh_mode_button_state()
 
     def check_backend_status(self):
@@ -147,9 +147,6 @@ class MainWindowController(QWidget):
             self._set_backend_status(True)
             return
 
-        next_index = (self.backend_host_index + 1) % len(LOCALHOST_BACKEND_HOSTS)
-        self.backend_host_index = next_index
-        self.backend_host = LOCALHOST_BACKEND_HOSTS[next_index]
         self._set_backend_status(False)
 
     def refresh_mode_button_state(self):

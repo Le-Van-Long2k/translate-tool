@@ -1,6 +1,7 @@
 import asyncio
 import gc
 import logging
+import os
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -90,6 +91,14 @@ class ConfigModel(BaseModel):
     translate_model: Optional[TranslatorType] = None
     source_lang: Optional[SourceLang] = SourceLang.auto
     target_lang: Optional[TargetLang] = None
+
+
+class TextTranslationRequest(BaseModel):
+    text: str
+
+
+class TranslateSystemPromptRequest(BaseModel):
+    prompt: str
 
 
 # =========================
@@ -873,6 +882,51 @@ async def translate_one_box_chat(
                 "translated": translated_texts[0] if translated_texts else "",
                 "timings": round(total, 4),
             }
+        )
+
+
+@app.post("/translate_text", response_class=Response)
+async def translate_text(request: TextTranslationRequest):
+    global TRANSLATOR
+    global CONFIG
+
+    ensure_models_loaded()
+
+    if PROCESS_LOCK.locked():
+        raise HTTPException(status_code=429, detail="Server is busy")
+
+    async with PROCESS_LOCK:
+        translated_texts = await TRANSLATOR.translate_batch(
+            [request.text],
+            from_lang=CONFIG.source_lang,
+            to_lang=CONFIG.target_lang,
+        )
+
+        translated_text = translated_texts[0] if translated_texts else ""
+        return Response(
+            content=translated_text,
+            media_type="text/plain; charset=utf-8",
+        )
+
+
+@app.get("/translate_system_prompt")
+async def get_translate_system_prompt():
+    return JSONResponse(
+        {
+            "TRANSLATE_SYSTEM_PROMPT": os.getenv("TRANSLATE_SYSTEM_PROMPT", "")
+        }
+    )
+
+
+@app.post("/translate_system_prompt")
+async def set_translate_system_prompt(request: TranslateSystemPromptRequest):
+    if PROCESS_LOCK.locked():
+        raise HTTPException(status_code=429, detail="Server is busy")
+
+    async with PROCESS_LOCK:
+        os.environ["TRANSLATE_SYSTEM_PROMPT"] = request.prompt
+        return JSONResponse(
+            {"TRANSLATE_SYSTEM_PROMPT": request.prompt}
         )
 
 

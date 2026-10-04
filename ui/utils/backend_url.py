@@ -2,33 +2,16 @@ from urllib.parse import urlparse
 
 import requests
 
-DEFAULT_BACKEND_HOST = "127.0.0.1"
-DEFAULT_BACKEND_PORT = 8052
+DEFAULT_BACKEND_HOST = "localhost"
+DEFAULT_BACKEND_PORT = 8055
 DEFAULT_BACKEND_BASE_URL = f"http://{DEFAULT_BACKEND_HOST}:{DEFAULT_BACKEND_PORT}"
-LOCALHOST_BACKEND_HOSTS = ("127.0.0.1", "localhost", "127.0.0.0", "0.0.0.0")
+LOCALHOST_BACKEND_HOSTS = ("localhost",)
 ACTIVE_BACKEND_HOST = DEFAULT_BACKEND_HOST
 
 
 def normalize_backend_host(host: str | None) -> str:
-    if host is None:
-        return DEFAULT_BACKEND_HOST
-
-    candidate = str(host).strip().strip("/")
-    if not candidate:
-        return DEFAULT_BACKEND_HOST
-
-    if candidate.startswith("http://") or candidate.startswith("https://"):
-        parsed = urlparse(candidate)
-        candidate = parsed.hostname or parsed.netloc or candidate
-
-    candidate = candidate.lower()
-    if candidate in {"localhost", "127.0.0.0", "0.0.0.0"}:
-        return DEFAULT_BACKEND_HOST
-
-    if candidate.startswith("[") and candidate.endswith("]"):
-        candidate = candidate[1:-1]
-
-    return candidate or DEFAULT_BACKEND_HOST
+    del host
+    return DEFAULT_BACKEND_HOST
 
 
 def normalize_backend_url(url: str | None, fallback_path: str = "/") -> str:
@@ -64,15 +47,14 @@ def resolve_backend_base_url(
     port: int = DEFAULT_BACKEND_PORT,
     request_getter=None,
 ) -> str:
-    configured_hosts = tuple(hosts or LOCALHOST_BACKEND_HOSTS)
+    configured_hosts = LOCALHOST_BACKEND_HOSTS
     getter = request_getter or requests.get
 
     for host in configured_hosts:
-        candidate_host = str(host).strip().strip("/")
-        if not candidate_host:
+        if not str(host).strip().strip("/"):
             continue
 
-        health_url = f"http://{candidate_host}:{port}/health_check"
+        health_url = f"http://{host}:{port}/health_check"
         try:
             response = getter(health_url, timeout=5)
             status_code = getattr(response, "status_code", 200)
@@ -86,8 +68,8 @@ def resolve_backend_base_url(
                 payload = {}
 
             if payload == {} or payload.get("status") == "ok":
-                update_backend_host(candidate_host)
-                return f"http://{candidate_host}:{port}"
+                update_backend_host(host)
+                return f"http://{host}:{port}"
         except Exception:
             continue
 

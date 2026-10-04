@@ -104,6 +104,7 @@ backend/**/*.pth
 backend/**/*.onnx
 backend/**/*.engine
 backend/.python-version
+backend/../_pycache__/
 
 # =========================
 # UI local deps

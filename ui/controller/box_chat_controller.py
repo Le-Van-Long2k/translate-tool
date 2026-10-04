@@ -61,16 +61,21 @@ class BoxChatModeController(QWidget):
         self._last_box_chat_text = ""
         self._ocr_worker = None
         self._refresh_timer = QTimer(self)
-        self._refresh_timer.setInterval(1000)
+        self._refresh_timer.setInterval(500)
         self._refresh_timer.timeout.connect(self._refresh_box_chat_region)
 
         self.popup = QWidget()
-        self.popup.setWindowTitle("Dịch chat game")
         self.popup.setWindowFlags(Qt.Tool | Qt.WindowStaysOnTopHint)
         self.popup.resize(320, 140)
 
         self.ui = Ui_box_chat_translate_form()
         self.ui.setupUi(self.popup)
+        self.popup.setWindowTitle("Dịch chat game")
+        self.ui.font_size_comboBox.setCurrentText("18")
+        self.ui.font_size_comboBox.currentTextChanged.connect(
+            self._update_result_font_size
+        )
+        self._update_result_font_size("18")
         self.ui.result_label.setText("Đang chờ kết quả...")
         self.popup.closeEvent = self._handle_popup_close
         self.popup.hide()
@@ -88,6 +93,13 @@ class BoxChatModeController(QWidget):
     def hide(self):
         self._refresh_timer.stop()
         self.popup.hide()
+
+    def _update_result_font_size(self, size):
+        point_size = int(size)
+        font = self.ui.result_label.font()
+        font.setPointSize(point_size)
+        self.ui.result_label.setFont(font)
+        self.ui.result_label.setStyleSheet(f"font-size: {point_size}pt;")
 
     def _capture_selected_region(self):
         if self._selected_ocr_rect is None:
@@ -125,6 +137,8 @@ class BoxChatModeController(QWidget):
         return image.copy(pixel_rect)
 
     def _refresh_box_chat_region(self):
+        if self.main_window is not None and not self.main_window.backend_is_running:
+            return
         if self._selected_ocr_rect is None:
             self._refresh_timer.stop()
             return
@@ -137,8 +151,6 @@ class BoxChatModeController(QWidget):
             self.ui.result_label.setText("")
             return
 
-        # Không hiển thị trạng thái "Đang dịch..." trong mode box chat.
-        # Giữ text cũ đang hiển thị nếu đang chờ OCR mới.
         self._start_box_chat_ocr(image)
 
     def start_box_chat_selection(self):
@@ -158,7 +170,7 @@ class BoxChatModeController(QWidget):
             return
 
         self._start_box_chat_ocr(image)
-        self._refresh_timer.start(1000)
+        self._refresh_timer.start(500)
 
     def _start_box_chat_ocr(self, image):
         if self._ocr_worker is not None and self._ocr_worker.isRunning():

@@ -1,4 +1,6 @@
 import os
+import shutil
+import tempfile
 
 import requests
 from PySide6.QtCore import QPoint, Qt, QThread, Signal
@@ -23,12 +25,9 @@ class DownloadComicWorker(QThread):
         try:
             valid_count = 0
             total = len(self.entries)
-            for index, (filename, image) in enumerate(self.entries, start=1):
-                if image is None or image.isNull():
-                    self.progress.emit(index, total)
-                    continue
+            for index, (filename, source_path) in enumerate(self.entries, start=1):
                 out_path = os.path.join(self.save_dir, filename)
-                image.save(out_path)
+                shutil.copyfile(source_path, out_path)
                 valid_count += 1
                 self.progress.emit(index, total)
             self.finished.emit(valid_count)
@@ -38,13 +37,23 @@ class DownloadComicWorker(QThread):
 
 class ComicSelectionWorker(QThread):
     progress = Signal(int, int)
-    image_processed = Signal(str, QImage)
+    image_processed = Signal(str, str)
     finished = Signal(list)
     error = Signal(str)
 
-    def __init__(self, selected_paths):
+    def __init__(self, selected_paths, temp_dir, backend_available_event=None):
         super().__init__()
         self.selected_paths = selected_paths or []
+        self.temp_dir = temp_dir
+        self.backend_available_event = backend_available_event
+
+    def _wait_for_backend(self):
+        if self.backend_available_event is None:
+            return True
+        while not self.backend_available_event.wait(0.2):
+            if self.isInterruptionRequested():
+                return False
+        return not self.isInterruptionRequested()
 
     def run(self):
         try:
@@ -55,15 +64,22 @@ class ComicSelectionWorker(QThread):
             entries = []
             total = len(self.selected_paths)
             for index, path in enumerate(self.selected_paths, start=1):
+                if self.isInterruptionRequested():
+                    break
                 if not os.path.isfile(path):
                     continue
 
                 filename = os.path.basename(path)
                 fallback_image = QImage(path)
+                output_filename = f"{index:06d}_{filename}"
+                output_path = os.path.join(self.temp_dir, output_filename)
 
                 try:
                     with open(path, "rb") as image_file:
                         image_bytes = image_file.read()
+
+                    if not self._wait_for_backend():
+                        break
 
                     response = requests.post(
                         build_backend_url("translate_comic"),
@@ -82,8 +98,11 @@ class ComicSelectionWorker(QThread):
                     self.progress.emit(index, total)
                     continue
 
-                entries.append((filename, image))
-                self.image_processed.emit(filename, image)
+                if not image.save(output_path):
+                    raise OSError(f"Không thể lưu ảnh tạm: {filename}")
+
+                entries.append((filename, output_path))
+                self.image_processed.emit(filename, output_path)
                 self.progress.emit(index, total)
 
             self.finished.emit(entries)
@@ -98,12 +117,13 @@ class ComicModeController(QWidget):
         self.offset = QPoint()
         self._selected_paths = []
         self._translated_entries = []
-        self._translated_images = []
-        self._navigation_images = []
+        self._navigation_entries = []
         self._navigation_index = -1
         self._current_image = None
         self._zoom_factor = 1.0
         self._download_mode = False
+        self._temp_dir = None
+        self._closed = False
 
         self.popup = QWidget()
         self.popup.setWindowTitle("Dịch truyện tranh")
@@ -140,9 +160,20 @@ class ComicModeController(QWidget):
         self.popup.hide()
 
     def _handle_popup_close(self, event):
+        self._closed = True
+        worker = getattr(self, "comic_worker", None)
+        if worker is not None and worker.isRunning():
+            worker.requestInterruption()
+        else:
+            self._cleanup_temp_dir()
         if self.main_window is not None and hasattr(self.main_window, "reset_to_default_mode"):
             self.main_window.reset_to_default_mode()
         event.accept()
+
+    def _cleanup_temp_dir(self):
+        if self._temp_dir is not None:
+            self._temp_dir.cleanup()
+            self._temp_dir = None
 
     def eventFilter(self, obj, event):
         if event.type() == event.Type.KeyPress and obj is self.ui.graphicsView:
@@ -175,7 +206,7 @@ class ComicModeController(QWidget):
         self.ui.status_label.setText(text)
 
     def _sync_navigation_buttons(self):
-        total = len(self._navigation_images)
+        total = len(self._navigation_entries)
         if total > 0 and self._navigation_index >= 0:
             self._update_status_label(f"Ảnh {self._navigation_index + 1}/{total}")
         elif total > 0:
@@ -207,22 +238,28 @@ class ComicModeController(QWidget):
         self._refresh_image_view()
 
     def go_to_previous_image(self):
-        if not self._navigation_images:
+        if not self._navigation_entries:
             return
         if self._navigation_index <= 0:
             return
         self._navigation_index -= 1
-        self.set_image(self._navigation_images[self._navigation_index])
+        self._show_navigation_image()
         self._sync_navigation_buttons()
 
     def go_to_next_image(self):
-        if not self._navigation_images:
+        if not self._navigation_entries:
             return
-        if self._navigation_index >= len(self._navigation_images) - 1:
+        if self._navigation_index >= len(self._navigation_entries) - 1:
             return
         self._navigation_index += 1
-        self.set_image(self._navigation_images[self._navigation_index])
+        self._show_navigation_image()
         self._sync_navigation_buttons()
+
+    def _show_navigation_image(self):
+        _, image_path = self._navigation_entries[self._navigation_index]
+        image = QImage(image_path)
+        if not image.isNull():
+            self.set_image(image)
 
     def set_download_state(self, is_translating: bool, current: int = 0, total: int = 0):
         if is_translating:
@@ -231,27 +268,29 @@ class ComicModeController(QWidget):
             else:
                 self._update_status_label("Đang xử lý...")
             self.ui.download_btn.setEnabled(False)
+            self.ui.select_img_btn.setEnabled(False)
         else:
             self.ui.download_btn.setEnabled(True)
+            self.ui.select_img_btn.setEnabled(True)
             self.ui.download_btn.setText("Tải xuống")
-            if self._navigation_images:
+            if self._navigation_entries:
                 self._sync_navigation_buttons()
-            elif self._translated_images:
-                self._update_status_label(f"{len(self._translated_images)} ảnh đã dịch")
+            elif self._translated_entries:
+                self._update_status_label(f"{len(self._translated_entries)} ảnh đã dịch")
             else:
                 self._update_status_label("Chưa có ảnh nào")
 
-    def set_preview_images(self, images):
-        self._translated_images = list(images or [])
-        self._navigation_images = self._translated_images
-        if self._navigation_index < 0 and self._navigation_images:
+    def set_preview_images(self, entries):
+        self._translated_entries = list(entries or [])
+        self._navigation_entries = self._translated_entries
+        if self._navigation_index < 0 and self._navigation_entries:
             self._navigation_index = 0
         self._sync_navigation_buttons()
-        if self._navigation_images and self._navigation_index >= 0:
+        if self._navigation_entries and self._navigation_index >= 0:
             if self._current_image is None:
-                self.set_image(self._navigation_images[self._navigation_index])
+                self._show_navigation_image()
         else:
-            self._update_status_label(f"{len(self._translated_images)} ảnh đã dịch")
+            self._update_status_label(f"{len(self._translated_entries)} ảnh đã dịch")
         self.set_download_state(False)
 
     def open_file_dialog(self):
@@ -264,22 +303,16 @@ class ComicModeController(QWidget):
         if not paths:
             return
 
+        self._cleanup_temp_dir()
         self._selected_paths = []
         self._translated_entries = []
-        self._translated_images = []
-        self._navigation_images = []
+        self._navigation_entries = []
         self._navigation_index = -1
         self._current_image = None
         self.graphics_scene.clear()
 
-        for image in self._translated_images:
-            del image
-        for image in self._navigation_images:
-            del image
-        self._translated_images = []
-        self._navigation_images = []
-
         self._selected_paths = paths
+        self._closed = False
         self.popup.setWindowTitle(f"Dịch truyện tranh ({len(paths)} ảnh)")
         self._update_status_label(f"Đang xử lý 0/{len(paths)}")
         self.set_download_state(True, 0, len(paths))
@@ -292,21 +325,21 @@ class ComicModeController(QWidget):
 
     def process_comic_selection(self, paths):
         self._translated_entries = []
-        self._translated_images = []
-        self._navigation_images = []
+        self._navigation_entries = []
         self._navigation_index = -1
         self._current_image = None
         self.graphics_scene.clear()
-
-        for image in self._translated_images:
-            del image
-        for image in self._navigation_images:
-            del image
+        self._temp_dir = tempfile.TemporaryDirectory(prefix="translate-tool-comic-")
 
         self.set_download_state(True, 0, len(paths))
         self._update_status_label(f"Đang xử lý 0/{len(paths)}")
 
-        self.comic_worker = ComicSelectionWorker(paths)
+        backend_available_event = getattr(self.main_window, "backend_available_event", None)
+        self.comic_worker = ComicSelectionWorker(
+            paths,
+            self._temp_dir.name,
+            backend_available_event,
+        )
         self.comic_worker.progress.connect(self.on_comic_selection_progress)
         self.comic_worker.image_processed.connect(self.on_comic_selection_image_processed)
         self.comic_worker.finished.connect(self.on_comic_selection_finished)
@@ -317,25 +350,30 @@ class ComicModeController(QWidget):
         self.set_download_state(True, current, total)
         self._update_status_label(f"Đang xử lý {current}/{total}")
 
-    def on_comic_selection_image_processed(self, filename: str, image: QImage):
-        self._translated_entries.append((filename, image))
-        self._translated_images.append(image)
-        self._navigation_images = list(self._translated_images)
-        if self._navigation_index < 0 and self._navigation_images:
+    def on_comic_selection_image_processed(self, filename: str, image_path: str):
+        self._translated_entries.append((filename, image_path))
+        self._navigation_entries = list(self._translated_entries)
+        if self._navigation_index < 0 and self._navigation_entries:
             self._navigation_index = 0
-            self.set_image(self._navigation_images[self._navigation_index])
-        self._update_status_label(f"Đã dịch {len(self._translated_images)}/{len(self._selected_paths)}")
+            self._show_navigation_image()
+        self._update_status_label(f"Đã dịch {len(self._translated_entries)}/{len(self._selected_paths)}")
         self._sync_navigation_buttons()
 
     def on_comic_selection_finished(self, entries):
+        if self._closed:
+            self._cleanup_temp_dir()
+            return
         self._translated_entries = list(entries)
-        self._translated_images = [img for _, img in entries]
-        self.set_preview_images(self._translated_images)
+        self.set_preview_images(self._translated_entries)
         self.set_download_state(False)
 
     def on_comic_selection_error(self, msg: str):
+        if self._closed:
+            self._cleanup_temp_dir()
+            return
         self._translated_entries = []
-        self._translated_images = []
+        self._navigation_entries = []
+        self._cleanup_temp_dir()
         self.set_download_state(False)
         self._update_status_label("Lỗi xử lý ảnh")
         QMessageBox.warning(self.popup, "Lỗi", f"API thất bại khi xử lý ảnh:\n{msg}")
@@ -382,6 +420,7 @@ class ComicModeController(QWidget):
         QMessageBox.critical(self.popup, "Tải xuống", f"Không thể tải xuống ảnh:\n{msg}")
 
     def show(self):
+        self._closed = False
         self.popup.show()
         self.popup.raise_()
 

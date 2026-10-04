@@ -1,5 +1,6 @@
 import threading
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QApplication, QSizePolicy, QWidget
 
@@ -15,23 +16,21 @@ from utils.backend_url import (
 
 
 def test_backend_url_normalization_uses_single_canonical_host():
-    assert normalize_backend_host("localhost") == "127.0.0.1"
-    assert normalize_backend_host("127.0.0.0") == "127.0.0.1"
-    assert normalize_backend_host("http://127.0.0.0:8052") == "127.0.0.1"
-    assert normalize_backend_url("http://localhost:8052/health_check") == "http://127.0.0.1:8052/health_check"
-    assert normalize_backend_url("http://127.0.0.0:8052/health_check") == "http://127.0.0.1:8052/health_check"
-    assert build_backend_url("/health_check") == "http://127.0.0.1:8052/health_check"
-    assert build_backend_url("translate_one_box_chat") == "http://127.0.0.1:8052/translate_one_box_chat"
+    assert normalize_backend_host("localhost") == "localhost"
+    assert normalize_backend_host("127.0.0.1") == "localhost"
+    assert normalize_backend_host("http://192.168.1.10:8055") == "localhost"
+    assert normalize_backend_url("http://localhost:8055/health_check") == "http://localhost:8055/health_check"
+    assert normalize_backend_url("http://127.0.0.1:8055/health_check") == "http://localhost:8055/health_check"
+    assert build_backend_url("/health_check") == "http://localhost:8055/health_check"
+    assert build_backend_url("translate_one_box_chat") == "http://localhost:8055/translate_one_box_chat"
 
 
-def test_backend_url_uses_first_working_localhost_candidate():
+def test_backend_url_only_checks_localhost():
     attempts = []
 
     def fake_get(url, timeout):
         attempts.append(url)
-        if url == "http://127.0.0.1:8052/health_check":
-            raise ConnectionError("down")
-        if url == "http://localhost:8052/health_check":
+        if url == "http://localhost:8055/health_check":
             class _Response:
                 status_code = 200
                 headers = {"Content-Type": "application/json"}
@@ -42,11 +41,8 @@ def test_backend_url_uses_first_working_localhost_candidate():
             return _Response()
         raise AssertionError(f"unexpected url: {url}")
 
-    assert resolve_backend_base_url(request_getter=fake_get) == "http://localhost:8052"
-    assert attempts == [
-        "http://127.0.0.1:8052/health_check",
-        "http://localhost:8052/health_check",
-    ]
+    assert resolve_backend_base_url(request_getter=fake_get) == "http://localhost:8055"
+    assert attempts == ["http://localhost:8055/health_check"]
 
 
 def test_backend_health_payload_ok():
@@ -75,6 +71,7 @@ def test_backend_ui_controls_disable_when_backend_down():
 
     controller = MainWindowController.__new__(MainWindowController)
     controller.ui = ui
+    controller.backend_available_event = threading.Event()
 
     controller._set_backend_status(False)
     assert ui.comboBox_translate_engine.isEnabled() is False
@@ -83,6 +80,45 @@ def test_backend_ui_controls_disable_when_backend_down():
     controller._set_backend_status(True)
     assert ui.comboBox_translate_engine.isEnabled() is True
     assert ui.comboBox_mode.isEnabled() is True
+
+
+def test_backend_status_down_keeps_active_popup_open():
+    app = QApplication.instance() or QApplication([])
+    parent = QWidget()
+    ui = Ui_Form()
+    ui.setupUi(parent)
+    popup = QWidget()
+    popup.show()
+
+    controller = MainWindowController.__new__(MainWindowController)
+    controller.ui = ui
+    controller.backend_available_event = threading.Event()
+    controller.popup_map = {"active": popup}
+    controller.refresh_mode_button_state = lambda: None
+
+    controller._set_backend_status(False)
+
+    assert popup.isVisible()
+    assert ui.comboBox_translate_engine.isEnabled() is False
+    assert ui.comboBox_mode.isEnabled() is False
+    popup.close()
+
+
+def test_box_chat_does_not_start_ocr_when_backend_is_down():
+    from controller.box_chat_controller import BoxChatModeController
+
+    app = QApplication.instance() or QApplication([])
+    controller = BoxChatModeController.__new__(BoxChatModeController)
+    controller.main_window = type("MainWindow", (), {"backend_is_running": False})()
+    controller._selected_ocr_rect = object()
+
+    def unexpected_request(image):
+        raise AssertionError("OCR request must be deferred while backend is down")
+
+    controller._start_box_chat_ocr = unexpected_request
+    controller._capture_selected_region = lambda: object()
+
+    controller._refresh_box_chat_region()
 
 
 def test_box_chat_result_label_fills_widget():

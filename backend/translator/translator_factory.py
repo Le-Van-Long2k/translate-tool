@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Union
 
+from translator.llm_translator import LLMTranslator
+from translator.indexTranslate_translator import IndexTranslator
 from translator.google_translator import GoogleTranslator
 from translator.tencent_translator import TencentTranslator
 from translator.facebook_nllb_translator import FacebookNLLBTranslator
@@ -15,6 +17,8 @@ class TranslatorType(str, Enum):
     FacebookNLLBTranslator = "facebook_nllb_translator"
     MyMemoryTranslator = "mymemory_translator"
     LibreTranslateTranslator = "libretranslate_translator"
+    IndexTranslateTranslator = "index_translate_translator"
+    LLMTranslator = "llm_translator"
 
 
 MODEL_REGISTRY = {
@@ -23,6 +27,8 @@ MODEL_REGISTRY = {
     TranslatorType.FacebookNLLBTranslator: FacebookNLLBTranslator,
     TranslatorType.MyMemoryTranslator: MyMemoryTranslator,
     TranslatorType.LibreTranslateTranslator: LibreTranslateTranslator,
+    TranslatorType.IndexTranslateTranslator: IndexTranslator,
+    TranslatorType.LLMTranslator: LLMTranslator,
 }
 
 
