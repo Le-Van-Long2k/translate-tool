@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'MainWindowkPYKeC.ui'
+## Form generated from reading UI file 'MainWindowlYlHOX.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.11.1
+## Created by: Qt User Interface Compiler version 6.11.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -16,8 +16,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QComboBox, QFrame, QHBoxLayout,
-    QLabel, QSizePolicy, QSpacerItem, QVBoxLayout,
-    QWidget)
+    QLabel, QSizePolicy, QSpacerItem, QToolButton,
+    QVBoxLayout, QWidget)
 import resources_rc
 
 class Ui_Form(object):
@@ -112,6 +112,21 @@ class Ui_Form(object):
         self.backendStatusLayout = QHBoxLayout()
         self.backendStatusLayout.setSpacing(8)
         self.backendStatusLayout.setObjectName(u"backendStatusLayout")
+        self.setting_btn = QToolButton(Form)
+        self.setting_btn.setObjectName(u"setting_btn")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        sizePolicy1.setHorizontalStretch(45)
+        sizePolicy1.setVerticalStretch(45)
+        sizePolicy1.setHeightForWidth(self.setting_btn.sizePolicy().hasHeightForWidth())
+        self.setting_btn.setSizePolicy(sizePolicy1)
+        self.setting_btn.setMinimumSize(QSize(45, 45))
+        icon = QIcon()
+        icon.addFile(u":/icons/setting.svg", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        self.setting_btn.setIcon(icon)
+        self.setting_btn.setIconSize(QSize(40, 40))
+
+        self.backendStatusLayout.addWidget(self.setting_btn)
+
         self.backendSpacer = QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.backendStatusLayout.addItem(self.backendSpacer)
@@ -157,6 +172,7 @@ class Ui_Form(object):
         self.comboBox_mode.setItemText(2, QCoreApplication.translate("Form", u"D\u1ecbch m\u00e0n h\u00ecnh", None))
         self.comboBox_mode.setItemText(3, QCoreApplication.translate("Form", u"D\u1ecbch chat game", None))
 
+        self.setting_btn.setText(QCoreApplication.translate("Form", u"...", None))
         self.label_radio_check_backend.setText(QCoreApplication.translate("Form", u"\u25cf", None))
         self.label_check_status_backend.setText(QCoreApplication.translate("Form", u"Backend \u0111ang ch\u1ea1y", None))
     # retranslateUi

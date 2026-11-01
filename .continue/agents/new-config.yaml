@@ -1,0 +1,12 @@
+name: Local LLM
+version: 1.0.0
+schema: v1
+
+models:
+  - name: Qwen3.8-35B-A3B
+    provider: openai
+    model: Qwen3.8-35B-A3B
+    apiBase: http://127.0.0.1:8085/v1
+    apiKey: EMPTY
+    roles:
+      - chat

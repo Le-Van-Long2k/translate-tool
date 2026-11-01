@@ -2,11 +2,13 @@ run_with_google_translate:
 	cp -f .env.example .env
 	sed -i 's/^TRANSLATE_MODEL=.*/TRANSLATE_MODEL=google_translator/' .env
 	docker compose up -d turbo-ocr translator-backend
+	bash run-backend.sh
 
 run_with_facebook_nllb_translate:
 	cp -f .env.example .env
 	sed -i 's/^TRANSLATE_MODEL=.*/TRANSLATE_MODEL=facebook_nllb_translator/' .env
 	docker compose up -d turbo-ocr translator-backend
+	bash run-backend.sh
 
 run_with_llm_HY_MT2_1.8B:
 	cp -f .env.example .env || exit 1
@@ -26,6 +28,7 @@ run_with_mymemory_translator:
 	cp -f .env.example .env || exit 1
 	sed -i "s/^TRANSLATE_MODEL=.*/TRANSLATE_MODEL=mymemory_translator/" .env
 	docker compose up -d turbo-ocr libretranslate translator-backend
+	bash run-backend.sh &
 
 run_with_libretranslate:
 	cp -f .env.example .env || exit 1

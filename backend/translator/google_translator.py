@@ -1,3 +1,4 @@
+
 import logging
 import time
 from typing import List
@@ -8,6 +9,7 @@ from translator.translator import ITranslator
 from utils.languages import SourceLang, TargetLang
 
 logger = logging.getLogger("TRANSLATOR")
+
 
 LANG_MAP = {
     SourceLang.auto: "auto",
@@ -25,37 +27,47 @@ class GoogleTranslator(ITranslator):
 
     async def _get_translator(self) -> Translator:
         if self.translator is None:
-            self.translator = Translator()
+            self.translator = Translator(transport="curl")
             await self.translator.__aenter__()
+
         return self.translator
 
     async def translate_batch(
         self,
         texts: List[str],
-        from_lang: "auto",
-        to_lang: str,
+        from_lang: SourceLang,
+        to_lang: TargetLang,
         context: str = "",
     ) -> List[str]:
+
         if not texts:
             return []
 
         start_time = time.perf_counter()
-        from_lang = "auto"
-        to_lang = "vi"
+
+        src = LANG_MAP.get(from_lang, "auto")
+        dest = LANG_MAP.get(to_lang, "vi")
 
         try:
             translator = await self._get_translator()
 
             results = await translator.translate(
                 texts,
-                src=from_lang,
-                dest=to_lang,
+                src=src,
+                dest=dest,
             )
 
             if not isinstance(results, list):
                 results = [results]
 
-            translated_texts = [r.text for r in results]
+            translated_texts = [result.text for result in results]
+
+            # Bảo đảm số lượng kết quả tương ứng đầu vào
+            if len(translated_texts) != len(texts):
+                raise ValueError(
+                    f"Expected {len(texts)} translations, "
+                    f"got {len(translated_texts)}"
+                )
 
             for original, translated in zip(texts, translated_texts):
                 logger.info(
@@ -63,18 +75,21 @@ class GoogleTranslator(ITranslator):
                     f"original={original!r} -> translated={translated!r}"
                 )
 
+            elapsed = time.perf_counter() - start_time
+
             logger.info(
-                f"Google Translate: {len(texts)} texts, {time.perf_counter() - start_time:.2f}s"
+                f"Google Translate: {len(texts)} texts, {elapsed:.2f}s"
             )
 
             return translated_texts
 
         except Exception:
             logger.exception("Google Translate failed")
-            print(f"Google Translate failed, returning original texts")
             return texts
 
     async def close(self):
-        if self.translator:
-            await self.translator.__aexit__(None, None, None)
-            self.translator = None
+        if self.translator is not None:
+            try:
+                await self.translator.__aexit__(None, None, None)
+            finally:
+                self.translator = None
